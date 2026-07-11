@@ -51,6 +51,23 @@ pip install -r requirements.txt
 python main.py
 ```
 
+**macOS note:** Apple's built-in `python3` (`/usr/bin/python3`) links against
+the system Tcl/Tk 8.5, which is deprecated and known to render a **blank
+window** on recent macOS versions. If you see a blank window or a
+`DEPRECATION WARNING` about system Tk, install a Python build with a modern
+Tk instead:
+
+```
+brew install python@3.12 python-tk@3.12
+/opt/homebrew/bin/python3.12 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/python main.py
+```
+
+`build_macos.sh` already does this automatically (it creates its own `.venv`
+using Homebrew's `python3.12`), so packaged `.app` builds aren't affected —
+this only matters when running `main.py` directly with `python3`.
+
 ## Running the tests
 
 ```
