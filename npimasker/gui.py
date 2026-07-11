@@ -4,6 +4,7 @@ import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+from npimasker import __version__
 from npimasker.crypto import WrongKeyError, derive_key, generate_passphrase
 from npimasker.csv_processor import process_csv, read_headers
 from npimasker.sensitive_fields import detect_sensitive_columns
@@ -12,7 +13,7 @@ from npimasker.sensitive_fields import detect_sensitive_columns
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("NPIMasker")
+        self.title(f"NPIMasker v{__version__}")
         self.geometry("560x520")
         self.minsize(480, 440)
 
@@ -195,8 +196,8 @@ class App(tk.Tk):
             messagebox.showerror("NPIMasker", str(exc))
             self.status_var.set("Failed: wrong key or corrupted file.")
             return
-        except (OSError, ValueError) as exc:
-            messagebox.showerror("NPIMasker", f"Failed: {exc}")
+        except Exception as exc:  # surface everything: a windowed app has no stderr
+            messagebox.showerror("NPIMasker", f"Failed: {type(exc).__name__}: {exc}")
             self.status_var.set("Failed.")
             return
 
