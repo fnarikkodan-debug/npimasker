@@ -13,11 +13,11 @@ jobs:
           - os: windows-latest
             artifact_name: NPIMasker-windows
             build_path: dist/NPIMasker.exe
-            pyinstaller_args: --onefile --windowed --name NPIMasker
+            pyinstaller_args: --onefile --windowed --name NPIMasker --collect-all spacy --collect-all en_core_web_sm
           - os: macos-latest
             artifact_name: NPIMasker-macos
             build_path: dist/NPIMasker.app
-            pyinstaller_args: --windowed --name NPIMasker
+            pyinstaller_args: --windowed --name NPIMasker --collect-all spacy --collect-all en_core_web_sm
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

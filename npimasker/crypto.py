@@ -11,6 +11,7 @@ ciphertext.
 """
 
 import base64
+import re
 import secrets
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -19,6 +20,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 _APP_SALT = b"npimasker-v1-fixed-salt"
 _KDF_ITERATIONS = 480_000
+_MARKER_RE = re.compile(r"\[\[ENC:([A-Za-z0-9_\-=]+)\]\]")
 
 
 class WrongKeyError(Exception):
@@ -59,3 +61,27 @@ def decrypt_value(token: str, key: bytes) -> str:
         raise WrongKeyError(
             "Wrong key or corrupted file: could not decrypt a value."
         ) from exc
+
+
+def encrypt_text_spans(text: str, spans: list[tuple[int, int]], key: bytes) -> str:
+    """Encrypt only the given (start, end) substrings of text, replacing
+    each with a `[[ENC:<token>]]` marker. Everything outside the spans is
+    left untouched. Spans are applied right-to-left so earlier offsets
+    stay valid as the string is rewritten.
+    """
+    for start, end in sorted(spans, reverse=True):
+        token = encrypt_value(text[start:end], key)
+        text = f"{text[:start]}[[ENC:{token}]]{text[end:]}"
+    return text
+
+
+def decrypt_text_spans(text: str, key: bytes) -> str:
+    """Reverse encrypt_text_spans: replace every `[[ENC:<token>]]` marker
+    with its decrypted plaintext. Text with no markers passes through
+    unchanged.
+    """
+
+    def _replace(match: re.Match) -> str:
+        return decrypt_value(match.group(1), key)
+
+    return _MARKER_RE.sub(_replace, text)

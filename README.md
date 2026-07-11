@@ -1,9 +1,14 @@
 # NPIMasker
 
-A small local tool that encrypts sensitive columns (name, email, phone, address,
-SSN, date of birth, NPI/medical record/insurance ID, etc.) in a CSV file, and
-decrypts them back with the same key. Everything runs locally — no data is sent
-anywhere.
+A small local tool that finds and encrypts sensitive data (name, email, phone,
+address, SSN, date of birth, NPI/medical record/insurance ID, etc.) in a CSV
+file, and decrypts it back with the same key. Everything runs locally — no
+data is sent anywhere.
+
+For free-text columns (e.g. "Notes"), it only encrypts the sensitive part of
+the text, not the whole cell — e.g. in `"...his name is Kang Li"`, only
+`"Kang Li"` gets encrypted. See "How detection works" below for exactly which
+columns get this treatment vs. whole-cell encryption.
 
 ## Using the Windows app
 
@@ -11,7 +16,10 @@ anywhere.
 2. Choose **Encrypt** or **Decrypt**.
 3. Click **Browse...** and pick your CSV file. The column list will show every
    column, with sensitive-looking ones (name, email, phone, address, etc.)
-   already checked — untick/tick as needed.
+   already checked — untick/tick as needed. Tick any free-text column (like
+   "Notes") too if it might contain embedded names, emails, SSNs, or dates —
+   NPIMasker will only encrypt the sensitive part of that text, not the whole
+   cell.
 4. Set the key:
    - First time: click **Generate & Save Key...** to create a strong random
      key and save it to a `.key` file. **Keep this file safe** — anyone who
@@ -44,7 +52,13 @@ a clear error instead of silently producing garbage.
     `macos-latest` runner and uploads it as an artifact on every push, so you
     don't have to build locally if you don't want to.
 
+Both builds bundle spaCy and its `en_core_web_sm` model for embedded-name
+detection, which noticeably increases build time and app size (packaged app
+is roughly 150-250MB) compared to a build without NLP.
+
 ## Running from source (any OS, for development)
+
+Requires **Python 3.10+** (spaCy's dependencies require it).
 
 ```
 pip install -r requirements.txt
@@ -75,11 +89,39 @@ pip install -r requirements.txt pytest
 pytest tests/
 ```
 
+## How detection works
+
+For each column you select, NPIMasker decides how to handle it based on the
+column header:
+
+- **Whole-cell columns** — headers matching Name, Phone, Address/Street/
+  City/State/Zip, or NPI/Medical record/MRN/Insurance/Policy number are
+  encrypted as a whole cell, like before. These categories either have no
+  reliable text pattern to search for (phone/address formats vary too much,
+  medical/insurance IDs have no fixed format) or benefit from a guarantee
+  that the whole value is always protected regardless of what it contains.
+- **Scanned columns** — every other selected column (Email/SSN/DOB columns,
+  and any free-text column like Notes/Comments) is scanned for PII *within*
+  the text, and only the detected substrings are encrypted:
+  - Emails, SSNs, and dates (covers DOB) are found with regular expressions.
+  - Person names are found anywhere in the text using
+    [spaCy](https://spacy.io/)'s named-entity recognition
+    (`en_core_web_sm`) — this is what catches a name embedded in a sentence
+    like `"...his name is Kang Li"`.
+  - This is best-effort, not a guarantee: NER can occasionally miss unusual
+    names, and there's no attempt to detect embedded street addresses or
+    phone numbers in free text (put those in dedicated, whole-cell columns
+    instead if you need them protected reliably).
+
 ## How the encryption works
 
-- Each sensitive cell is encrypted independently with
+- Each detected piece of sensitive text (a whole cell, or a substring found
+  by the scanner above) is encrypted independently with
   [Fernet](https://cryptography.io/en/latest/fernet/) (AES-128 + HMAC), so
-  identical values in different cells produce different ciphertext.
+  identical values produce different ciphertext each time.
+- In scanned columns, an encrypted substring is replaced in place with a
+  `[[ENC:<token>]]` marker; decrypting finds these markers and swaps back in
+  the original plaintext, leaving the rest of the cell's text untouched.
 - The key you provide (or generate) is run through PBKDF2-HMAC-SHA256 with a
   fixed, application-level salt to derive the actual encryption key. This is
   a deliberate simplicity trade-off for a local, single-user tool: it means

@@ -2,7 +2,15 @@
 
 import csv
 
-from npimasker.crypto import WrongKeyError, decrypt_value, encrypt_value
+from npimasker.crypto import (
+    WrongKeyError,
+    decrypt_text_spans,
+    decrypt_value,
+    encrypt_text_spans,
+    encrypt_value,
+)
+from npimasker.pii_detect import find_pii_spans
+from npimasker.sensitive_fields import is_whole_cell_header
 
 
 def read_headers(input_path: str) -> list[str]:
@@ -10,6 +18,14 @@ def read_headers(input_path: str) -> list[str]:
     with open(input_path, newline="", encoding="utf-8-sig") as f:
         reader = csv.reader(f)
         return next(reader, [])
+
+
+def _transform_cell(value: str, key: bytes, mode: str, whole_cell: bool) -> str:
+    if whole_cell:
+        return encrypt_value(value, key) if mode == "encrypt" else decrypt_value(value, key)
+    if mode == "encrypt":
+        return encrypt_text_spans(value, find_pii_spans(value), key)
+    return decrypt_text_spans(value, key)
 
 
 def process_csv(
@@ -21,12 +37,17 @@ def process_csv(
 ) -> None:
     """Encrypt or decrypt the selected columns of a CSV, row by row.
 
+    Columns whose header names a whole-cell category (name, phone, address,
+    NPI/medical record/insurance) are encrypted/decrypted as a whole cell.
+    Other selected columns are scanned for PII spans (emails, SSNs, dates,
+    and person names via NER) and only those spans are encrypted/decrypted,
+    leaving the rest of the cell's text untouched.
+
     Columns not in `selected_columns` are copied through unchanged.
     Raises WrongKeyError (with row/column context) if a decrypt fails.
     """
     if mode not in ("encrypt", "decrypt"):
         raise ValueError(f"Unknown mode: {mode!r}")
-    transform = encrypt_value if mode == "encrypt" else decrypt_value
     selected = set(selected_columns)
 
     with open(input_path, newline="", encoding="utf-8-sig") as infile, open(
@@ -40,13 +61,19 @@ def process_csv(
             raise ValueError("Input CSV is empty.")
         writer.writerow(headers)
 
+        whole_cell = {
+            idx: is_whole_cell_header(headers[idx]) for idx in selected if idx < len(headers)
+        }
+
         for row_num, row in enumerate(reader, start=2):
             new_row = list(row)
             for idx in selected:
                 if idx >= len(new_row):
                     continue
                 try:
-                    new_row[idx] = transform(new_row[idx], key)
+                    new_row[idx] = _transform_cell(
+                        new_row[idx], key, mode, whole_cell.get(idx, True)
+                    )
                 except WrongKeyError as exc:
                     column_name = headers[idx] if idx < len(headers) else str(idx)
                     raise WrongKeyError(

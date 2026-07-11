@@ -52,7 +52,7 @@ class App(tk.Tk):
         cols_frame.pack(fill="both", expand=True, **pad)
         ttk.Label(
             cols_frame,
-            text="Columns to encrypt/decrypt (sensitive-looking ones are pre-selected):",
+            text="Columns to scan for sensitive data (sensitive-looking ones are pre-selected):",
         ).pack(anchor="w")
         list_row = ttk.Frame(cols_frame)
         list_row.pack(fill="both", expand=True)

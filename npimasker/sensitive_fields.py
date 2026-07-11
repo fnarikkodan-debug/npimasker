@@ -26,14 +26,43 @@ SENSITIVE_KEYWORDS = [
 ]
 
 
+# Headers in these categories are encrypted as a whole cell rather than
+# scanned for embedded PII spans: phone/address formats are too varied to
+# regex reliably, medical-record/insurance IDs have no fixed format, and
+# name columns stay whole-cell so a dedicated Name column is never left
+# unencrypted if NER misses a short, context-free name string. NER still
+# catches names embedded in *other* (non-Name-headed) columns.
+WHOLE_CELL_KEYWORDS = [
+    # name
+    "name", "first name", "last name", "full name", "middle name",
+    "patient name", "provider name",
+    # phone
+    "phone", "mobile", "fax", "contact number", "telephone",
+    # address
+    "address", "street", "city", "state", "zip", "zipcode", "postal",
+    # npi / medical / insurance
+    "npi", "medical record", "mrn", "insurance", "member id", "policy number",
+]
+
+
 def _normalize(header: str) -> str:
     cleaned = re.sub(r"[^a-z0-9 ]", " ", header.strip().lower())
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
-def is_sensitive_header(header: str) -> bool:
+def _matches_any(header: str, keywords: list[str]) -> bool:
     normalized = f" {_normalize(header)} "
-    return any(f" {kw} " in normalized for kw in SENSITIVE_KEYWORDS)
+    return any(f" {kw} " in normalized for kw in keywords)
+
+
+def is_sensitive_header(header: str) -> bool:
+    return _matches_any(header, SENSITIVE_KEYWORDS)
+
+
+def is_whole_cell_header(header: str) -> bool:
+    """Whether this column should be encrypted as a whole cell rather than
+    scanned for embedded PII spans (see WHOLE_CELL_KEYWORDS above)."""
+    return _matches_any(header, WHOLE_CELL_KEYWORDS)
 
 
 def detect_sensitive_columns(headers: list[str]) -> list[int]:

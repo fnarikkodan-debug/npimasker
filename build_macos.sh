@@ -19,7 +19,9 @@ fi
 cd "$(dirname "$0")"
 "$PYTHON_BIN" -m venv .venv
 .venv/bin/pip install -r requirements.txt pyinstaller
-.venv/bin/pyinstaller --windowed --name NPIMasker main.py
+# --collect-all bundles spaCy's dynamic language modules and the
+# en_core_web_sm model data, which PyInstaller can't discover on its own.
+.venv/bin/pyinstaller --windowed --name NPIMasker --collect-all spacy --collect-all en_core_web_sm main.py
 
 echo
 echo "Done. Find NPIMasker.app in the dist/ folder."

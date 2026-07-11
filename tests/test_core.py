@@ -3,8 +3,15 @@ import os
 
 import pytest
 
-from npimasker.crypto import WrongKeyError, derive_key, generate_passphrase
+from npimasker.crypto import (
+    WrongKeyError,
+    decrypt_text_spans,
+    derive_key,
+    encrypt_text_spans,
+    generate_passphrase,
+)
 from npimasker.csv_processor import process_csv, read_headers
+from npimasker.pii_detect import find_pii_spans
 from npimasker.sensitive_fields import detect_sensitive_columns
 
 HEADERS = ["ID", "Full Name", "Email", "Phone Number", "Address", "Notes"]
@@ -84,3 +91,84 @@ def test_generate_passphrase_is_random_and_derives_stable_key():
     assert p1 != p2
     assert derive_key(p1) == derive_key(p1)
     assert derive_key(p1) != derive_key(p2)
+
+
+def test_find_pii_spans_regex_detectors():
+    text = "Contact me at jane.doe@example.com re: SSN 123-45-6789, DOB 03/14/1990"
+    spans = find_pii_spans(text)
+    found = {text[start:end] for start, end in spans}
+    assert "jane.doe@example.com" in found
+    assert "123-45-6789" in found
+    assert "03/14/1990" in found
+
+
+def test_find_pii_spans_detects_embedded_person_name():
+    text = "a person have walked in and his name is Kang Li"
+    spans = find_pii_spans(text)
+    found = [text[start:end] for start, end in spans]
+    assert "Kang Li" in found
+    # Everything else in the sentence is untouched by detection.
+    assert text[: text.index("Kang Li")] == "a person have walked in and his name is "
+
+
+def test_encrypt_decrypt_text_spans_round_trip():
+    key = derive_key("span-key")
+    text = "a person have walked in and his name is Kang Li"
+    start = text.index("Kang Li")
+    end = start + len("Kang Li")
+
+    encrypted = encrypt_text_spans(text, [(start, end)], key)
+    assert "Kang Li" not in encrypted
+    assert encrypted.startswith("a person have walked in and his name is [[ENC:")
+    assert encrypted.endswith("]]")
+
+    decrypted = decrypt_text_spans(encrypted, key)
+    assert decrypted == text
+
+
+def test_encrypt_text_spans_no_spans_is_a_no_op():
+    key = derive_key("span-key")
+    text = "nothing sensitive here"
+    assert encrypt_text_spans(text, [], key) == text
+    assert decrypt_text_spans(text, key) == text
+
+
+def test_free_text_column_only_encrypts_detected_pii(tmp_path):
+    headers = ["ID", "Notes"]
+    sentence = "a person have walked in and his name is Kang Li"
+    rows = [["1", sentence]]
+
+    input_path = tmp_path / "in.csv"
+    with open(input_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(headers)
+        writer.writerows(rows)
+
+    key = derive_key("notes-key")
+    encrypted_path = tmp_path / "encrypted.csv"
+    decrypted_path = tmp_path / "decrypted.csv"
+
+    process_csv(str(input_path), str(encrypted_path), key, "encrypt", [1])
+
+    with open(encrypted_path, newline="", encoding="utf-8") as f:
+        enc_rows = list(csv.reader(f))
+    encrypted_notes = enc_rows[1][1]
+    assert "Kang Li" not in encrypted_notes
+    # The rest of the sentence, up to the name, is untouched.
+    assert encrypted_notes.startswith("a person have walked in and his name is ")
+
+    process_csv(str(encrypted_path), str(decrypted_path), key, "decrypt", [1])
+
+    with open(decrypted_path, newline="", encoding="utf-8") as f:
+        dec_rows = list(csv.reader(f))
+    assert dec_rows[1][1] == sentence
+
+
+def test_whole_cell_categories_still_used_for_name_phone_address():
+    from npimasker.sensitive_fields import is_whole_cell_header
+
+    assert is_whole_cell_header("Full Name")
+    assert is_whole_cell_header("Phone Number")
+    assert is_whole_cell_header("Address")
+    assert not is_whole_cell_header("Email")
+    assert not is_whole_cell_header("Notes")
