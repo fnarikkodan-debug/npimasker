@@ -27,17 +27,22 @@ anywhere.
 If you decrypt with the wrong key, or a value got corrupted, NPIMasker shows
 a clear error instead of silently producing garbage.
 
-## Building the .exe
+## Building the app
 
-This project is developed on macOS, and Windows `.exe` files can only be
-built on Windows. Two ways to get `NPIMasker.exe`:
-
-- **GitHub Actions (recommended):** push this repo to GitHub. The workflow
-  in `.github/workflows/build-exe.yml` builds `NPIMasker.exe` on a Windows
-  runner automatically and attaches it as a downloadable artifact on the
-  Actions run.
-- **Build it yourself on a Windows PC:** install Python 3.11+, then run
-  `build_windows.bat` in this folder. The exe will be in `dist\NPIMasker.exe`.
+- **Windows (.exe):**
+  - **GitHub Actions (recommended):** push this repo to GitHub. The workflow
+    in `.github/workflows/build-exe.yml` builds `NPIMasker.exe` on a Windows
+    runner automatically and attaches it as a downloadable artifact on the
+    Actions run.
+  - **Build it yourself on a Windows PC:** install Python 3.11+, then run
+    `build_windows.bat` in this folder. The exe will be in `dist\NPIMasker.exe`.
+- **macOS (.app), for testing locally while developing:**
+  - Run `./build_macos.sh` in this folder (installs PyInstaller if needed).
+    The app will be at `dist/NPIMasker.app` — double-click it, or `open
+    dist/NPIMasker.app` from the terminal.
+  - The same GitHub Actions workflow also builds `NPIMasker-macos` on a
+    `macos-latest` runner and uploads it as an artifact on every push, so you
+    don't have to build locally if you don't want to.
 
 ## Running from source (any OS, for development)
 
