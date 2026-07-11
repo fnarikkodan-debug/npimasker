@@ -6,3 +6,4 @@ dist/
 *.key
 .venv/
 venv/
+.DS_Store
