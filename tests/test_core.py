@@ -111,6 +111,25 @@ def test_find_pii_spans_detects_embedded_person_name():
     assert text[: text.index("Kang Li")] == "a person have walked in and his name is "
 
 
+def test_find_pii_spans_catches_name_mislabeled_as_org():
+    # The small NER model tags "Lilly" as ORG (not PERSON) and leaves
+    # "petlock" unlabeled entirely; ORG inclusion + rightward extension
+    # must still cover the full name.
+    text = "working on case for Lilly petlock"
+    spans = find_pii_spans(text)
+    found = [text[start:end] for start, end in spans]
+    assert "Lilly petlock" in found
+
+
+def test_find_pii_spans_extension_stops_at_other_entities():
+    # "yesterday" is a DATE entity and must not be swallowed into the name.
+    text = "spoke with Kang Li yesterday"
+    spans = find_pii_spans(text)
+    found = [text[start:end] for start, end in spans]
+    assert "Kang Li" in found
+    assert all("yesterday" not in f for f in found)
+
+
 def test_encrypt_decrypt_text_spans_round_trip():
     key = derive_key("span-key")
     text = "a person have walked in and his name is Kang Li"

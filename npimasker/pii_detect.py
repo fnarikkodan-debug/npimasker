@@ -39,6 +39,35 @@ def _merge_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
+# ORG is included because the small NER model frequently mislabels unusual
+# person names as organizations (e.g. "Lilly Petlock" -> ORG); leaking a
+# name is worse than over-encrypting an organization name, and encryption
+# is reversible either way.
+_SENSITIVE_ENT_LABELS = {"PERSON", "ORG"}
+
+
+def _extended_end(doc, ent) -> int:
+    """Extend an entity rightward over adjacent unlabeled alphabetic
+    noun-like tokens NER left out of the span — catches surnames the model
+    didn't attach (e.g. only "Lilly" tagged in "Lilly petlock"). Tokens
+    already inside another entity (like a DATE) block the extension.
+    """
+    end_tok = ent.end
+    while end_tok < len(doc):
+        tok = doc[end_tok]
+        if (
+            tok.ent_type_ == ""
+            and tok.is_alpha
+            and not tok.is_stop
+            and tok.pos_ in ("PROPN", "NOUN", "X")
+        ):
+            end_tok += 1
+        else:
+            break
+    last = doc[end_tok - 1]
+    return last.idx + len(last)
+
+
 def find_pii_spans(text: str) -> list[tuple[int, int]]:
     """Return non-overlapping (start, end) spans of detected PII in text."""
     if not text:
@@ -49,9 +78,9 @@ def find_pii_spans(text: str) -> list[tuple[int, int]]:
         for match in pattern.finditer(text):
             spans.append((match.start(), match.end()))
 
-    nlp = _get_nlp()
-    for ent in nlp(text).ents:
-        if ent.label_ == "PERSON":
-            spans.append((ent.start_char, ent.end_char))
+    doc = _get_nlp()(text)
+    for ent in doc.ents:
+        if ent.label_ in _SENSITIVE_ENT_LABELS:
+            spans.append((ent.start_char, _extended_end(doc, ent)))
 
     return _merge_spans(spans)

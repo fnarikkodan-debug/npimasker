@@ -108,10 +108,17 @@ column header:
     [spaCy](https://spacy.io/)'s named-entity recognition
     (`en_core_web_sm`) — this is what catches a name embedded in a sentence
     like `"...his name is Kang Li"`.
-  - This is best-effort, not a guarantee: NER can occasionally miss unusual
-    names, and there's no attempt to detect embedded street addresses or
-    phone numbers in free text (put those in dedicated, whole-cell columns
-    instead if you need them protected reliably).
+  - Organization names are encrypted too, deliberately: the NER model often
+    mislabels unusual person names as organizations (e.g. "Lilly Petlock"),
+    and leaking a name is worse than over-encrypting the name of a hospital
+    or insurer (which is often itself identifying). Detected name spans are
+    also extended over an immediately following attached word the model left
+    out (catches "petlock" when only "Lilly" was tagged).
+  - This is best-effort, not a guarantee: an all-lowercase name (e.g.
+    "lilly petlock") can still be missed entirely, and there's no attempt to
+    detect embedded street addresses or phone numbers in free text (put
+    those in dedicated, whole-cell columns instead if you need them
+    protected reliably).
 
 ## How the encryption works
 
