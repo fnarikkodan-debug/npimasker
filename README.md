@@ -14,12 +14,30 @@ columns get this treatment vs. whole-cell encryption.
 
 1. Get `NPIMasker.exe` (see "Building the .exe" below) and double-click it.
 2. Choose **Encrypt** or **Decrypt**.
-3. Click **Browse...** and pick your CSV file. The column list will show every
-   column, with sensitive-looking ones (name, email, phone, address, etc.)
-   already checked — untick/tick as needed. Tick any free-text column (like
-   "Notes") too if it might contain embedded names, emails, SSNs, or dates —
-   NPIMasker will only encrypt the sensitive part of that text, not the whole
-   cell.
+3. Click **Browse...** and pick your CSV file. The column list shows every
+   column with how it will be treated. Click a row (or select it and press
+   **Space**) to cycle through the three options:
+   - **Skip** — copied through unchanged.
+   - **Scan for sensitive text** — only the sensitive parts of the cell are
+     encrypted, leaving the rest of the text readable. Use this for
+     free-text columns like "Notes".
+   - **Encrypt whole cell** — the entire value is encrypted, whatever it
+     contains.
+
+   Sensitive-looking columns (name, email, phone, address, etc.) start on a
+   sensible default, so you can leave this alone if you want. Two reasons to
+   change it:
+   - **Certainty.** Scanning is best-effort — it can miss an unusual or
+     all-lowercase name. If a free-text column is sensitive throughout (a
+     clinical note, say), set it to **Encrypt whole cell** and nothing can
+     slip through.
+   - **Speed.** Scanning is where nearly all the running time goes. On a
+     large file, switching free-text columns to **Encrypt whole cell** turns
+     a run that takes many minutes into one that takes seconds.
+
+   In **Decrypt** mode the two encrypted options collapse into a single
+   **Decrypt**, because decryption works out for itself how each value was
+   encrypted (see below).
 4. Set the key:
    - First time: click **Generate & Save Key...** to create a strong random
      key and save it to a `.key` file. **Keep this file safe** — anyone who
@@ -29,11 +47,82 @@ columns get this treatment vs. whole-cell encryption.
      **Load Key from File...** and pick that same `.key` file.
 5. Confirm the output path (auto-filled next to the input file) and click
    **Run**.
-6. Store or send the encrypted CSV and the `.key` file **separately** (e.g.
+6. Optionally tick **Verify output** before running. It re-reads the
+   finished file and checks every value — see "What NPIMasker does not
+   change" below. It's off by default because on a quick run it roughly
+   doubles the time; on a slow one (where columns are scanned for
+   sensitive text) it costs almost nothing, so it's worth ticking there.
+7. A progress bar and a row count show what's happening during the run.
+   Large files take a while — see the timings below — and the window stays
+   responsive throughout, so you can move it around while it works.
+8. Store or send the encrypted CSV and the `.key` file **separately** (e.g.
    don't email them in the same message).
 
 If you decrypt with the wrong key, or a value got corrupted, NPIMasker shows
 a clear error instead of silently producing garbage.
+
+If you accidentally point **Encrypt** at a file that has already been
+encrypted, NPIMasker stops and tells you, naming the row and column, rather
+than encrypting it a second time. Decrypt that file first, or pick a
+different input.
+
+## What NPIMasker does not change
+
+Everything other than the values you asked to encrypt comes back exactly as
+it went in — same bytes, not merely the same content.
+
+- **The file's encoding is preserved.** A Windows-1252 export comes back as
+  Windows-1252; a UTF-16 file comes back as UTF-16. Output used to always be
+  UTF-8, which meant accented characters and smart quotes turned to mojibake
+  the moment Excel reopened the file.
+- **A byte-order mark is neither added nor removed.**
+- **Line endings are preserved** — a file with Unix line endings doesn't
+  come back with Windows ones, and a file that didn't end with a newline
+  doesn't grow one.
+- **Quoting and spacing are preserved.** Any row you didn't change is copied
+  through verbatim rather than rewritten, so `"1","Zoe"` stays exactly that
+  instead of becoming `1,Zoe`.
+- **Rows and columns you didn't select are untouched**, including blank
+  lines, ragged rows, leading zeros and formula-looking cells.
+
+Two limits worth knowing, both deliberate:
+
+- In a row that *did* change, cells other than the encrypted one may lose
+  quotes they didn't strictly need. They always read back as identical
+  values; only the punctuation around them can differ.
+- Encrypted text is plain ASCII. If *every* accented character in a file
+  happens to sit in an encrypted column, the encrypted file no longer
+  carries any clue about the original encoding, so decrypting it later
+  produces UTF-8. The text is recovered exactly; only the encoding differs.
+  Any untouched column containing an accent prevents this.
+
+**Verify output** (the checkbox next to Run) checks all of this on the
+finished file before handing it to you: unselected columns unchanged, every
+encrypted value decrypting back to exactly what it was, no encrypted value
+left behind after a decrypt, and matching row and column counts. If anything
+doesn't line up the run fails and no file is written — an existing file from
+a previous run is left alone.
+
+## Troubleshooting
+
+Every run writes a log file with timing/progress info and full tracebacks
+for any error or crash. If something goes wrong, click **Open Log Folder**
+(next to Run) and send us `npimasker.log` from that folder.
+
+The log lives at `%LOCALAPPDATA%\NPIMasker\logs\npimasker.log` on Windows. If
+that folder can't be written to, NPIMasker falls back to your temp folder,
+and if that fails too it carries on without a log rather than refusing to
+start — **Open Log Folder** always tells you which case you're in.
+
+The log records timings, row counts, and the *names* of the columns you
+selected. It deliberately does **not** record any cell values, or the folder
+your file came from — only the file's name — since a path like
+`\\share\patients\Smith_John_1970\` is itself sensitive.
+
+If a run fails or you quit partway through, no output file is written at all:
+you'll never be left with a half-encrypted CSV that looks finished. An
+existing output file from a previous run is left untouched unless the new run
+succeeds.
 
 ## Building the app
 
@@ -91,8 +180,8 @@ pytest tests/
 
 ## How detection works
 
-For each column you select, NPIMasker decides how to handle it based on the
-column header:
+When **encrypting**, each selected column is treated according to what you
+picked in the column list. The defaults come from the column header:
 
 - **Whole-cell columns** — headers matching Name, Phone, Address/Street/
   City/State/Zip, or NPI/Medical record/MRN/Insurance/Policy number are
@@ -119,6 +208,40 @@ column header:
     detect embedded street addresses or phone numbers in free text (put
     those in dedicated, whole-cell columns instead if you need them
     protected reliably).
+
+### File encodings
+
+NPIMasker works out a file's encoding before reading it, checking for a
+byte-order mark first (UTF-8, UTF-16 and UTF-32, either byte order), then
+falling back to UTF-8, Windows-1252 and Latin-1 in that order.
+
+UTF-16 matters more than it sounds: files big enough to be awkward usually
+don't come from Excel, which stops at about a million rows — they come from
+PowerShell, where `Out-File` and `>` write UTF-16 by default. Such a file
+used to be misread as Windows-1252, which made every column name after the
+first show up **blank** in the column list, and produced a corrupted output
+file without reporting anything wrong.
+
+If a file contains bytes that can't be text in any encoding NPIMasker
+supports, it says so and stops rather than guessing.
+
+### Decrypting
+
+When **decrypting**, the header is not consulted at all: each cell says what
+it is. A cell holding `[[ENC:...]]` markers has those markers swapped back
+for plaintext; a cell that is entirely one encrypted value is decrypted
+whole; anything else was never encrypted and is passed through untouched.
+
+This is why you don't have to remember what you chose when you encrypted, and
+why renaming a column between encrypting and decrypting is harmless. (It used
+to be actively dangerous: decryption made the same header-based guess
+independently, and if the two disagreed it could hand back a file that still
+held encrypted values without reporting anything wrong.)
+
+A value that *starts* like an encrypted value but has been damaged — a
+spreadsheet clipping a long field, say — is reported as an error rather than
+passed through, so a corrupted file can't quietly look like a successful
+decryption.
 
 ## How the encryption works
 

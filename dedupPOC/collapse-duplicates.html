@@ -101,6 +101,42 @@ input[type=text]{
 .pfx-row input{flex:1 1 260px;min-width:0;font-family:'Cascadia Mono','Consolas',monospace;font-size:13px}
 .pf{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--warn);flex:0 0 auto}
 
+/* survivor rules */
+.rule{border:1px solid var(--rule);background:var(--field);border-radius:2px;padding:11px 12px;margin-bottom:8px}
+.rule-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.rule-lvl{font-family:'Cascadia Mono','Consolas',monospace;font-size:11px;color:var(--muted);
+  flex:0 0 auto;border:1px solid var(--rule);border-radius:2px;padding:3px 7px;background:var(--panel)}
+.rule-top select{font-size:13.5px;padding:6px 8px}
+.rule-spacer{flex:1 1 auto}
+.rule-x{background:none;border:1px solid var(--rule);border-radius:2px;color:var(--muted);
+  cursor:pointer;font-size:13px;line-height:1;padding:6px 9px}
+.rule-x:hover{color:var(--drop);border-color:var(--drop)}
+.rule-x:disabled{opacity:.3;cursor:not-allowed}
+.rule-cfg{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:9px;
+  padding-top:9px;border-top:1px dashed var(--rule)}
+.rule-cfg label{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.rule-cfg input[type=text]{font-family:'Cascadia Mono','Consolas',monospace;font-size:13px;min-width:150px}
+.rule-cols{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+.rule-cols .chip{font-size:12px;padding:4px 9px}
+.rule-note{font-size:12.5px;color:var(--muted);margin-top:7px}
+.rule-note.bad{color:var(--drop)}
+.ds-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:6px}
+.ds-row select{flex:1 1 260px;min-width:0;font-size:13.5px}
+#profOut{margin-bottom:14px;overflow-x:auto}
+table.prof{border-collapse:collapse;width:100%;font-size:13px;background:var(--panel);border:1px solid var(--rule)}
+table.prof th,table.prof td{padding:6px 10px;border-bottom:1px solid var(--rule);text-align:left;white-space:nowrap}
+table.prof thead th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:400;background:var(--field)}
+table.prof td.n{text-align:right;font-variant-numeric:tabular-nums}
+table.prof tr.sel td{background:var(--field);font-weight:600}
+.flag{font-size:11px;letter-spacing:.05em;text-transform:uppercase}
+.flag.warn{color:var(--warn)}
+.flag.no{color:var(--drop)}
+.prof-note{font-size:12.5px;color:var(--muted)}
+.chain{margin-top:14px;padding:12px 14px;background:var(--panel);border:1px solid var(--rule);
+  border-left:3px solid var(--keep);border-radius:2px;font-size:13.5px;line-height:1.65}
+.chain b{font-weight:600}
+.chain .fall{color:var(--muted)}
+
 /* buttons */
 .btn{
   background:var(--ink);color:#fff;border:1px solid var(--ink);border-radius:2px;
@@ -191,6 +227,22 @@ h3.sec{font-size:14.5px;margin:26px 0 10px}
       <div class="step-note" id="pickCount"></div>
     </div>
     <div class="panel">
+      <div class="sub-label">Pick the dataset — start from settings you saved earlier, or set everything by hand.</div>
+      <div class="ds-row">
+        <select id="presetPick"></select>
+        <button class="btn ghost small" id="presetSave">Save these settings…</button>
+        <button class="btn ghost small" id="presetLoad">Load from a file…</button>
+        <button class="btn ghost small" id="presetForget" hidden>Remove from the list</button>
+        <input type="file" id="presetFile" accept=".json,application/json" hidden>
+      </div>
+      <div id="presetNote" class="rule-note"></div>
+      <div id="presetWarn" class="err" hidden></div>
+
+      <div class="btnrow" style="margin-bottom:10px">
+        <button class="btn ghost small" id="profBtn">What is in each column?</button>
+      </div>
+      <div id="profOut" hidden></div>
+
       <div class="sub-label">Match columns — rows are duplicates only when <b>every</b> one of these is identical.</div>
       <div class="cols" id="keyCols"></div>
 
@@ -205,8 +257,13 @@ h3.sec{font-size:14.5px;margin:26px 0 10px}
         <label class="opt"><input type="checkbox" id="pfxCase"><span>Recognise the prefix even when its letter case differs.</span></label>
       </div>
 
-      <div class="sub-label">Tiebreak column — when rows collide, a row that has a value here beats a row that doesn't.</div>
-      <select id="tieCol"></select>
+      <div class="sub-label">Survivor rules — applied in order. Each rule only sees the rows the rule above it could not separate.</div>
+      <div id="ruleList"></div>
+      <div class="btnrow">
+        <button class="btn ghost small" id="addRule">Add a rule</button>
+      </div>
+      <div id="ruleChain" class="chain"></div>
+      <div id="ruleErr" class="err" hidden></div>
 
       <label class="opt">
         <input type="checkbox" id="wsBlank" checked>
@@ -227,6 +284,7 @@ h3.sec{font-size:14.5px;margin:26px 0 10px}
       <div class="step-note" id="ranAt"></div>
     </div>
     <div class="stats" id="stats"></div>
+    <div id="attrib" class="chain"></div>
     <div id="hazards"></div>
 
     <h3 class="sec disp">Collision inspector</h3>
@@ -244,8 +302,10 @@ h3.sec{font-size:14.5px;margin:26px 0 10px}
         <button class="btn" id="dlClean">Cleaned rows (.xlsx)</button>
         <button class="btn ghost" id="dlCleanCsv">Cleaned rows (.csv)</button>
         <button class="btn ghost" id="dlRemoved">Removed rows (.xlsx)</button>
+        <button class="btn ghost" id="dlRemovedCsv">Removed rows (.csv)</button>
       </div>
-      <div class="dlnote">Both of the above hold real data — keep them on this machine.</div>
+      <div class="dlnote">All of the above hold real data — keep them on this machine.</div>
+      <div id="dlErr" class="err" hidden></div>
       <div class="btnrow" style="margin-top:16px">
         <button class="btn ghost" id="dlSummary">Run summary (.txt)</button>
       </div>
@@ -258,10 +318,141 @@ h3.sec{font-size:14.5px;margin:26px 0 10px}
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
-const NUL = "\u0000";
 let HEADERS = [], ROWS = [], SRCNAME = "data", SRCKIND = "xlsx", RESULT = null;
+let RULECFG = [];   // ordered survivor-rule configs, edited by the builder
+let ENCODING = "utf-8";   // how the last CSV was decoded
 
 /* ---------- strict CSV parsing (no type coercion, RFC4180 quoting) ---------- */
+/* ==== grid:begin ==== */
+
+function colLetter(i){ let s = "", n = i + 1; while (n > 0){ const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - 1 - m) / 26; } return s; }
+
+/* What to call a column that has no heading. It is a real column with real
+   data in it, so name it the way the spreadsheet does rather than implying
+   something is broken. */
+function headerLabel(headers, i){
+  const h = headers[i];
+  return (h && h.length) ? h : "column " + colLetter(i);
+}
+
+/* Turn a raw parsed grid into headers and rows of equal width.
+
+   The width comes from the widest column that actually carries something,
+   across every row -- not from the header row and not from the sheet's
+   declared range. Two bugs die here:
+
+   - xlsx <dimension> is routinely over-declared (deleted columns, leftover
+     formatting), and SheetJS 0.18.5 trusts it without checking. sheet_to_json
+     pads every row out to that width, and each phantom column surfaced in the
+     picker as an unnamed one.
+   - Taking the width from the header row alone silently dropped any column the
+     header did not reach, losing real data with no warning. */
+function gridToTable(grid){
+  const kept = grid.filter(row => row.some(c => String(c == null ? "" : c).length));
+  let last = -1;
+  for (const row of kept){
+    for (let i = row.length - 1; i > last; i--){
+      if (String(row[i] == null ? "" : row[i]).length){ last = i; break; }
+    }
+  }
+  const width = last + 1;
+  // NUL is the separator the grouping keys are built from, so a NUL inside a
+  // cell would let two different rows build the same key. Spreadsheet text
+  // never legitimately contains one; strip it rather than leave the grouping
+  // invariant standing on an assumption about upstream decoding.
+  const cell = (row, i) => {
+    const v = row[i];
+    if (v == null) return "";
+    const t = String(v);
+    return t.indexOf("\u0000") === -1 ? t : t.replace(/\u0000/g, "");
+  };
+  const headers = new Array(width);
+  for (let i = 0; i < width; i++) headers[i] = kept.length ? cell(kept[0], i) : "";
+  const rows = kept.slice(1).map(row => {
+    const out = new Array(width);
+    for (let i = 0; i < width; i++) out[i] = cell(row, i);
+    return out;
+  });
+  return { headers, rows, width };
+}
+
+/* ==== grid:end ==== */
+
+/* ==== csv:begin ==== */
+
+/* Work out how the bytes of a CSV are encoded, rather than assuming UTF-8.
+   Excel on Windows writes Windows-1252 for plain "CSV (Comma delimited)" --
+   only its separate "CSV UTF-8" option is UTF-8. Decoding those bytes as UTF-8
+   turns every accented character into U+FFFD, which can make two genuinely
+   different values compare equal and get one of them deleted. Nothing in the
+   output would look wrong, so this has to be settled before parsing. */
+/* TextDecoder has no UTF-32, and it is six lines to do properly. */
+function decodeUtf32(bytes, be){
+  let out = "";
+  for (let i = 0; i + 3 < bytes.length; i += 4){
+    const cp = be ? (bytes[i] << 24 | bytes[i+1] << 16 | bytes[i+2] << 8 | bytes[i+3]) >>> 0
+                  : (bytes[i+3] << 24 | bytes[i+2] << 16 | bytes[i+1] << 8 | bytes[i]) >>> 0;
+    if (cp > 0x10FFFF) return null;
+    out += String.fromCodePoint(cp);
+  }
+  return out;
+}
+
+function decodeText(bytes){
+  if (!bytes.length) return { text:"", encoding:"utf-8" };
+
+  // UTF-32 before UTF-16: the UTF-32LE BOM is FF FE 00 00, which starts with
+  // the UTF-16LE BOM. Testing in the other order misreads every UTF-32 file.
+  if (bytes[0] === 0xFF && bytes[1] === 0xFE && bytes[2] === 0x00 && bytes[3] === 0x00){
+    const t = decodeUtf32(bytes.subarray(4), false);
+    if (t !== null) return { text:t, encoding:"utf-32le" };
+  }
+  if (bytes[0] === 0x00 && bytes[1] === 0x00 && bytes[2] === 0xFE && bytes[3] === 0xFF){
+    const t = decodeUtf32(bytes.subarray(4), true);
+    if (t !== null) return { text:t, encoding:"utf-32be" };
+  }
+  if (bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF)
+    return { text: new TextDecoder("utf-8").decode(bytes.subarray(3)), encoding:"utf-8" };
+  if (bytes[0] === 0xFF && bytes[1] === 0xFE)
+    return { text: new TextDecoder("utf-16le").decode(bytes.subarray(2)), encoding:"utf-16le" };
+  if (bytes[0] === 0xFE && bytes[1] === 0xFF)
+    return { text: new TextDecoder("utf-16be").decode(bytes.subarray(2)), encoding:"utf-16be" };
+
+  // No BOM. A NUL byte proves this is not an 8-bit encoding -- but NUL is
+  // perfectly valid UTF-8, so a strict UTF-8 decode ACCEPTS UTF-16 text and
+  // hands back a string full of NULs. PowerShell's Out-File and > both write
+  // BOM-less UTF-16LE, so this is a real file class, not a curiosity. Settle
+  // it on the bytes before trusting any decoder.
+  const scan = Math.min(bytes.length, 1 << 20);
+  let nuls = 0, even = 0;
+  for (let i = 0; i < scan; i++){
+    if (bytes[i] === 0){ nuls++; if ((i & 1) === 0) even++; }
+  }
+  if (nuls){
+    const density = nuls / scan;
+    // Parity is only evidence once there are enough NULs to have a pattern.
+    // One NUL is always all-even or all-odd, which says nothing.
+    if (nuls >= 4 && density >= 0.1){
+      const evenShare = even / nuls;
+      // UTF-16BE puts the NUL of an ASCII pair first (even offset).
+      if (evenShare >= 0.9) return { text: new TextDecoder("utf-16be").decode(bytes), encoding:"utf-16be" };
+      if (evenShare <= 0.1) return { text: new TextDecoder("utf-16le").decode(bytes), encoding:"utf-16le" };
+      throw new Error("this file's encoding could not be determined — its NUL bytes fall in no consistent pattern. Re-save it as CSV UTF-8 and try again");
+    }
+    if (density >= 0.3){
+      // Dense NULs but too few to judge: binary, not text.
+      throw new Error("this does not look like a text file — re-save it as CSV UTF-8 and try again");
+    }
+    // A stray NUL in an otherwise ordinary file. Not an encoding signal.
+  }
+
+  try {
+    return { text: new TextDecoder("utf-8", { fatal:true }).decode(bytes), encoding:"utf-8" };
+  } catch (e) {
+    return { text: new TextDecoder("windows-1252").decode(bytes), encoding:"windows-1252" };
+  }
+}
+
 function sniffDelim(text){
   const line = text.slice(0, 8000).split(/\r?\n/)[0] || "";
   let best = ",", bestN = -1;
@@ -278,7 +469,24 @@ function sniffDelim(text){
 }
 function parseCSV(text){
   if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
-  const d = sniffDelim(text), out = [];
+
+  // Excel writes a leading "sep=," line when the saving machine's list
+  // separator differs from the one the extension implies. It is a declaration,
+  // not data: reading it as the header row makes the file two columns wide and
+  // silently drops every column after the second.
+  let declared = null;
+  const nl = text.search(/\r?\n/);
+  if (nl > 0 && text.slice(0, 4).toLowerCase() === "sep="){
+    const rest = text.slice(4, nl);
+    // One character declares the delimiter. A bare "sep=" declares nothing, but
+    // it is still not a header row, so drop it and fall back to sniffing.
+    if (rest.length <= 1){
+      if (rest.length === 1) declared = rest;
+      text = text.slice(nl + (text[nl] === "\r" ? 2 : 1));
+    }
+  }
+
+  const d = declared || sniffDelim(text), out = [];
   let row = [], f = "", q = false, i = 0;
   while (i < text.length){
     const c = text[i];
@@ -306,8 +514,31 @@ function toCSV(headers, rows){
   for (const r of rows) lines.push(r.map(csvCell).join(","));
   return "\uFEFF" + lines.join("\r\n");
 }
+/* ==== csv:end ==== */
 
 /* ---------- loading ---------- */
+
+/* SheetJS takes the sheet's range straight from the xlsx <dimension> tag.
+   Some writers set that to the whole sheet (A1:XFD1048576); sheet_to_json
+   would then walk seventeen billion cells and freeze the tab with no error at
+   all. When the declared range looks implausible, work it out from the cells
+   that actually exist. */
+function usedRange(ws){
+  const ref = ws["!ref"];
+  if (!ref) return ref;
+  let r;
+  try { r = XLSX.utils.decode_range(ref); } catch (e) { return ref; }
+  if (r.e.c - r.s.c < 1000) return ref;
+  let maxR = 0, maxC = 0;
+  for (const k in ws){
+    if (k.charCodeAt(0) === 33) continue;   // "!"
+    const c = XLSX.utils.decode_cell(k);
+    if (c.r > maxR) maxR = c.r;
+    if (c.c > maxC) maxC = c.c;
+  }
+  return XLSX.utils.encode_range({ s:{ r:0, c:0 }, e:{ r:maxR, c:maxC } });
+}
+
 const drop = $("#drop"), fileInput = $("#file");
 drop.addEventListener("click", () => fileInput.click());
 drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("hot"); });
@@ -328,6 +559,14 @@ function fail(msg){
 
 function load(file){
   $("#loadErr").hidden = true;
+  // A new file invalidates everything the last one produced. Without this the
+  // download buttons stay live, holding the previous file's rows under the new
+  // file's name.
+  RESULT = null; RULECFG = []; PFX.clear(); DATEFMT.clear(); PROFILE = null;
+  $("#resultStep").hidden = true;
+  $("#dlStep").hidden = true;
+  $("#mapStep").hidden = true;
+  $("#profOut").hidden = true;
   SRCNAME = file.name.replace(/\.[^.]+$/, "");
   SRCKIND = /\.csv$|\.txt$/i.test(file.name) ? "csv" : "xlsx";
   say("Reading " + file.name + "…", 15);
@@ -338,44 +577,55 @@ function load(file){
       try {
         let grid;
         if (SRCKIND === "csv"){
-          grid = parseCSV(r.result);
+          const dec = decodeText(new Uint8Array(r.result));
+          ENCODING = dec.encoding;
+          grid = parseCSV(dec.text);
         } else {
           const wb = XLSX.read(new Uint8Array(r.result), { type:"array", cellDates:false, cellNF:false, cellStyles:false });
           const ws = wb.Sheets[wb.SheetNames[0]];
-          if (!ws) throw new Error("no sheet");
+          if (!ws){
+            // The workbook listed a sheet but none came back. In this build
+            // that means a part of the file was too big for the browser to
+            // decode -- a single zip part over 512MB of text, which one column
+            // of very long values is enough to cause -- and the failure was
+            // swallowed on the way up.
+            throw new Error(wb.SheetNames.length
+              ? "the sheet could not be decoded. This usually means one column holds so much text that the file exceeds what a browser tab can hold. Split the file, or export it as .csv and use that instead"
+              : "the workbook has no sheets");
+          }
+          ws["!ref"] = usedRange(ws);
           grid = XLSX.utils.sheet_to_json(ws, { header:1, raw:false, defval:"", blankrows:false });
         }
-        grid = grid.filter(row => row.some(c => String(c ?? "").length));
-        if (grid.length < 2) throw new Error("needs a header row and at least one data row");
-        HEADERS = grid[0].map(h => String(h ?? ""));
-        const w = HEADERS.length;
-        ROWS = grid.slice(1).map(row => {
-          const out = new Array(w);
-          for (let i=0;i<w;i++) out[i] = String(row[i] ?? "");
-          return out;
-        });
+        const table = gridToTable(grid);
+        if (!table.width || !table.rows.length)
+          throw new Error("needs a header row and at least one data row");
+        HEADERS = table.headers;
+        ROWS = table.rows;
+        const w = table.width;
         $("#progress").hidden = true;
         $("#fileInfo").hidden = false;
         $("#fileInfo").innerHTML = "<b>" + file.name + "</b> — " + ROWS.length.toLocaleString() +
-          " data rows, " + w + " columns" + (SRCKIND === "csv" ? " (delimiter detected from the header line)" : "");
+          " data rows, " + w + " columns" +
+          (SRCKIND === "csv" ? " \u00b7 read as " + ENCODING + ", delimiter detected from the header line" : "");
         buildPickers();
       } catch (err) {
         fail("Could not read that file: " + err.message);
       }
     }, 30);
   };
-  if (SRCKIND === "csv") r.readAsText(file, "UTF-8"); else r.readAsArrayBuffer(file);
+  r.readAsArrayBuffer(file);
 }
 
 /* ---------- column pickers ---------- */
 const keySet = new Set();
-function buildPickers(){
-  keySet.clear();
+/* The match-column chips, drawn from whatever keySet currently holds -- so a
+   preset can put its selection on screen the same way a click does. */
+function drawKeyChips(){
   const box = $("#keyCols"); box.innerHTML = "";
   HEADERS.forEach((h, i) => {
     const b = document.createElement("div");
-    b.className = "chip";
-    b.innerHTML = '<span class="ix">' + colLetter(i) + '</span>' + (h || "(unnamed " + (i+1) + ")");
+    b.className = "chip" + (keySet.has(i) ? " on" : "");
+    b.innerHTML = '<span class="ix">' + colLetter(i) + '</span>' + esc(headerLabel(HEADERS, i));
     b.addEventListener("click", () => {
       if (keySet.has(i)) { keySet.delete(i); b.classList.remove("on"); }
       else { keySet.add(i); b.classList.add("on"); }
@@ -383,17 +633,505 @@ function buildPickers(){
     });
     box.appendChild(b);
   });
-  const sel = $("#tieCol"); sel.innerHTML = "";
-  HEADERS.forEach((h, i) => {
-    const o = document.createElement("option");
-    o.value = i; o.textContent = colLetter(i) + " — " + (h || "(unnamed " + (i+1) + ")");
-    sel.appendChild(o);
-  });
-  sel.addEventListener("change", syncPick);
+}
+
+function buildPickers(){
+  keySet.clear();
+  drawKeyChips();
+  RULECFG = [{ type:"hasvalue", field: HEADERS.length > 1 ? 1 : 0, on:true }];
+  DATEFMT.clear();
+  CURRENT_PRESET = "";
+  SAVED = readStore();
+  drawPresetPicker();
+  presetWarn("");
+  renderRules();
   $("#mapStep").hidden = false;
   syncPick();
 }
-function colLetter(i){ let s = "", n = i + 1; while (n > 0){ const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = (n - 1 - m) / 26; } return s; }
+
+/* ---------- the rule builder ---------- */
+
+const RULE_TYPES = [
+  ["hasvalue",     "Carries a value"],
+  ["minmax:date",  "Oldest / newest date"],
+  ["minmax:number","Lowest / highest number"],
+  ["minmax:text",  "First / last alphabetically"],
+  ["count",        "Counting across columns"],
+];
+const cfgKind = c => c.type === "minmax" ? "minmax:" + c.parse : c.type;
+const DATEFMT = new Map();   // column -> detectDateFormat() result, cached per file
+
+function colName(i){ return colLetter(i) + " — " + headerLabel(HEADERS, i); }
+function shortColName(i){ return headerLabel(HEADERS, i); }
+
+function colSelect(value, onChange){
+  const sel = document.createElement("select");
+  if (value === null || value === undefined){
+    const o = document.createElement("option");
+    o.value = ""; o.textContent = "— choose a column —"; o.selected = true;
+    sel.appendChild(o);
+  }
+  HEADERS.forEach((h, i) => {
+    const o = document.createElement("option");
+    o.value = i; o.textContent = colName(i);
+    if (i === value) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.addEventListener("change", () => onChange(+sel.value));
+  return sel;
+}
+function pickSelect(options, value, onChange){
+  const sel = document.createElement("select");
+  for (const [v, label] of options){
+    const o = document.createElement("option");
+    o.value = v; o.textContent = label;
+    if (v === value) o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.addEventListener("change", () => onChange(sel.value));
+  return sel;
+}
+
+function dateInfo(col){
+  if (!DATEFMT.has(col)){
+    const vals = new Array(ROWS.length);
+    for (let i = 0; i < ROWS.length; i++) vals[i] = ROWS[i][col];
+    DATEFMT.set(col, detectDateFormat(vals));
+  }
+  return DATEFMT.get(col);
+}
+
+function renderRules(){
+  const list = $("#ruleList"); list.innerHTML = "";
+  RULECFG.forEach((cfg, n) => {
+    const box = document.createElement("div");
+    box.className = "rule";
+
+    const top = document.createElement("div");
+    top.className = "rule-top";
+    const lvl = document.createElement("span");
+    lvl.className = "rule-lvl"; lvl.textContent = "LEVEL " + (n + 1);
+    top.appendChild(lvl);
+
+    top.appendChild(pickSelect(RULE_TYPES, cfgKind(cfg), v => {
+      RULECFG[n] = defaultCfg(v, cfg.field);
+      renderRules(); syncPick();
+    }));
+
+    if (cfg.type !== "count"){
+      top.appendChild(colSelect(cfg.field, v => {
+        cfg.field = v; delete cfg.needs; renderRules(); syncPick();
+      }));
+    }
+    const DIRS = {
+      "minmax:date":  [["min","Keep the oldest"],["max","Keep the newest"]],
+      "minmax:number":[["min","Keep the lowest"],["max","Keep the highest"]],
+      "minmax:text":  [["min","Keep the first A–Z"],["max","Keep the last A–Z"]],
+      "count":        [["max","Keep the highest count"],["min","Keep the lowest count"]],
+    };
+    if (DIRS[cfgKind(cfg)]){
+      top.appendChild(pickSelect(DIRS[cfgKind(cfg)], cfg.dir === "min" ? "min" : "max",
+        v => { cfg.dir = v; syncPick(); }));
+    }
+
+    const spacer = document.createElement("span");
+    spacer.className = "rule-spacer"; top.appendChild(spacer);
+
+    const up = document.createElement("button");
+    up.className = "rule-x"; up.type = "button"; up.textContent = "\u2191";
+    up.title = "Move this rule earlier"; up.disabled = n === 0;
+    up.addEventListener("click", () => {
+      RULECFG.splice(n - 1, 0, RULECFG.splice(n, 1)[0]); renderRules(); syncPick();
+    });
+    const dn = document.createElement("button");
+    dn.className = "rule-x"; dn.type = "button"; dn.textContent = "\u2193";
+    dn.title = "Move this rule later"; dn.disabled = n === RULECFG.length - 1;
+    dn.addEventListener("click", () => {
+      RULECFG.splice(n + 1, 0, RULECFG.splice(n, 1)[0]); renderRules(); syncPick();
+    });
+    const sw = document.createElement("button");
+    sw.className = "rule-x"; sw.type = "button";
+    sw.textContent = ruleIsOn(cfg) ? "on" : "off";
+    sw.title = ruleIsOn(cfg) ? "Switch this criterion off without removing it" : "Switch it back on";
+    sw.addEventListener("click", () => { cfg.on = !ruleIsOn(cfg); renderRules(); syncPick(); });
+    top.appendChild(sw);
+
+    const rm = document.createElement("button");
+    rm.className = "rule-x"; rm.type = "button"; rm.textContent = "\u00d7";
+    rm.title = "Remove this rule"; rm.disabled = RULECFG.length === 1;
+    rm.addEventListener("click", () => { RULECFG.splice(n, 1); renderRules(); syncPick(); });
+    top.appendChild(up); top.appendChild(dn); top.appendChild(rm);
+    box.appendChild(top);
+
+    if (cfg.needs || cfg.field === null){
+      const ask = document.createElement("div");
+      ask.className = "rule-note bad";
+      ask.textContent = "This preset leaves the column to you \u2014 pick it above. " +
+                        "(" + cfg.needs + ")";
+      box.appendChild(ask);
+    }
+    if (cfg.type === "minmax" && cfg.parse === "number") box.appendChild(numberCfgRow(cfg));
+    if (cfg.type === "minmax" && cfg.parse === "date")   box.appendChild(dateCfgRow(cfg));
+    if (cfg.type === "minmax" && cfg.parse === "text")   box.appendChild(stripCfgRow(cfg));
+    if (cfg.type === "count")  box.appendChild(countCfgRow(cfg));
+
+    list.appendChild(box);
+  });
+  renderChain();
+}
+
+function defaultCfg(kind, col){
+  const field = col || 0;
+  if (kind === "hasvalue") return { type:"hasvalue", field:field, on:true };
+  if (kind === "count")    return { type:"count", dir:"max", fields:[], counts:"above-zero", on:true };
+  const parse = kind.split(":")[1];
+  const c = { type:"minmax", parse:parse, dir:"min", field:field, strip:"none", pfx:"", on:true };
+  if (parse === "number") c.decimal = "us";
+  return c;
+}
+
+/* How a criterion reads past a prefix -- shared by every minmax parse. */
+function stripControls(cfg, row){
+  row.appendChild(pickSelect([
+    ["none",   "Read the whole cell"],
+    ["prefix", "Ignore a prefix I name"],
+    ["digits", "Start at the first digit"],
+  ], cfg.strip || "none", v => { cfg.strip = v; renderRules(); syncPick(); }));
+
+  if ((cfg.strip || "none") === "prefix"){
+    const pl = document.createElement("label");
+    pl.appendChild(document.createTextNode("Prefix"));
+    const pin = document.createElement("input");
+    pin.type = "text"; pin.placeholder = "e.g. INV-  (comma-separated)";
+    pin.value = cfg.pfx || "";
+    pin.addEventListener("input", () => { cfg.pfx = pin.value; syncPick(); });
+    pl.appendChild(pin); row.appendChild(pl);
+  }
+}
+function stripCfgRow(cfg){
+  const row = document.createElement("div");
+  row.className = "rule-cfg";
+  stripControls(cfg, row);
+  return row;
+}
+function numberCfgRow(cfg){
+  const row = document.createElement("div");
+  row.className = "rule-cfg";
+  stripControls(cfg, row);
+  row.appendChild(pickSelect([["us","1,234.56"],["eu","1.234,56"]], cfg.decimal || "us",
+    v => { cfg.decimal = v; syncPick(); }));
+
+  const zl = document.createElement("label");
+  const zc = document.createElement("input");
+  zc.type = "checkbox"; zc.checked = !!cfg.zero;
+  zc.addEventListener("change", () => { cfg.zero = zc.checked; syncPick(); });
+  zl.appendChild(zc); zl.appendChild(document.createTextNode("Empty counts as 0"));
+  row.appendChild(zl);
+
+  const al = document.createElement("label");
+  const ac = document.createElement("input");
+  ac.type = "checkbox"; ac.checked = !!cfg.accounting;
+  ac.addEventListener("change", () => { cfg.accounting = ac.checked; syncPick(); });
+  al.appendChild(ac); al.appendChild(document.createTextNode("(500) means \u2212500"));
+  row.appendChild(al);
+  return row;
+}
+function dateCfgRow(cfg){
+  const row = document.createElement("div");
+  row.className = "rule-cfg";
+  const info = dateInfo(cfg.field);
+
+  const OPTS = [["ISO","2026-03-04"],["DMY","04/03/2026 \u2014 day first"],
+                ["MDY","03/04/2026 \u2014 month first"],["MON","4-Mar-2026"],
+                ["YMD8","20260304"],["SERIAL","Excel serial number"]];
+
+  if (info.status === "ok" && !cfg.fmt) cfg.fmt = FMT_NAME[info.format] || info.format;
+  const lab = document.createElement("label");
+  lab.appendChild(document.createTextNode("Date format"));
+  lab.appendChild(pickSelect(OPTS, cfg.fmt || "", v => { cfg.fmt = v; renderRules(); syncPick(); }));
+  row.appendChild(lab);
+
+  const note = document.createElement("div");
+  note.className = "rule-note";
+  if (info.status === "ok"){
+    note.textContent = "Detected " + info.format.toUpperCase() + " from " + info.parsed +
+      " value" + (info.parsed === 1 ? "" : "s") +
+      (info.unparsed ? "; " + info.unparsed + " could not be read." : ".");
+  } else if (info.status === "ambiguous" && info.candidates.indexOf("serial") !== -1){
+    note.className = "rule-note bad";
+    note.textContent = "These look like plain numbers (e.g. " + info.sample +
+      "). If they are Excel dates, choose Excel serial number \u2014 the tool will not assume it.";
+  } else if (info.status === "ambiguous"){
+    note.className = "rule-note bad";
+    note.textContent = "Cannot tell day-first from month-first: nothing in this column is above 12 (e.g. " +
+      info.sample + "). Choose one \u2014 guessing would silently reorder your rows.";
+  } else if (info.status === "contradictory"){
+    note.className = "rule-note bad";
+    note.textContent = "This column contains both orders (e.g. " + info.sample +
+      "). It cannot be read as dates until the source data is fixed.";
+  } else {
+    note.className = "rule-note bad";
+    note.textContent = "No dates found in this column.";
+  }
+  row.appendChild(note);
+  return row;
+}
+
+function countCfgRow(cfg){
+  const wrap = document.createElement("div");
+  const row = document.createElement("div");
+  row.className = "rule-cfg";
+  row.appendChild(pickSelect([
+    ["above-zero", "Count fields above zero"],
+    ["filled",     "Count fields with anything in them"],
+  ], cfg.counts || "above-zero", v => { cfg.counts = v; renderRules(); syncPick(); }));
+  const note = document.createElement("div");
+  note.className = "rule-note";
+  note.textContent = (cfg.counts || "above-zero") === "above-zero"
+    ? "A cell holding 0 does not count, and neither does text that is not a number."
+    : "Any cell with something in it counts, including a 0.";
+  row.appendChild(note);
+  wrap.appendChild(row);
+
+  const lab = document.createElement("div");
+  lab.className = "rule-note";
+  lab.textContent = "Across these columns:";
+  wrap.appendChild(lab);
+  const cols = document.createElement("div");
+  cols.className = "rule-cols";
+  cfg.fields = cfg.fields || [];
+  HEADERS.forEach((h, i) => {
+    const el = document.createElement("div");
+    el.className = "chip" + (cfg.fields.indexOf(i) !== -1 ? " on" : "");
+    el.innerHTML = '<span class="ix">' + colLetter(i) + '</span>' + esc(headerLabel(HEADERS, i));
+    el.addEventListener("click", () => {
+      const at = cfg.fields.indexOf(i);
+      if (at === -1) cfg.fields.push(i); else cfg.fields.splice(at, 1);
+      cfg.fields.sort((x, y) => x - y);
+      renderRules(); syncPick();
+    });
+    cols.appendChild(el);
+  });
+  wrap.appendChild(cols);
+  return wrap;
+}
+function renderChain(){
+  const parts = describeChain(RULECFG, shortColName);
+  const html = parts.map((p, i) => '<b>' + (i + 1) + '.</b> ' + esc(p)).join(' &nbsp;\u00b7&nbsp; ') +
+    ' &nbsp;\u00b7&nbsp; <span class="fall"><b>' + (parts.length + 1) +
+    '.</b> otherwise keep the row nearest the top of the file</span>';
+  $("#ruleChain").innerHTML = html;
+}
+
+/* ---------- what is in each column ---------- */
+
+let PROFILE = null;
+
+$("#profBtn").addEventListener("click", () => {
+  const box = $("#profOut"), btn = $("#profBtn");
+  if (!box.hidden){ box.hidden = true; btn.textContent = "What is in each column?"; return; }
+  btn.textContent = "Working…";
+  setTimeout(() => {
+    if (!PROFILE){
+      const cellAt = (i, c) => ROWS[i][c];
+      PROFILE = HEADERS.map((h, c) => profileColumn(cellAt, ROWS.length, c));
+    }
+    const n = v => v.toLocaleString();
+    box.innerHTML =
+      '<table class="prof"><thead><tr><th>Column</th><th class="n">Filled</th><th class="n">Blank</th>' +
+      '<th class="n">Different values</th><th>Looks like</th><th></th></tr></thead><tbody>' +
+      PROFILE.map(p => {
+        const f = profileFlag(p, ROWS.length);
+        return '<tr' + (keySet.has(p.c) ? ' class="sel"' : '') + '>' +
+          '<td><span class="ix">' + colLetter(p.c) + '</span>' + esc(headerLabel(HEADERS, p.c)) + '</td>' +
+          '<td class="n">' + n(p.filled) + '</td><td class="n">' + n(p.blank) + '</td>' +
+          '<td class="n">' + n(p.distinct) + (p.capped ? "+" : "") + '</td>' +
+          '<td>' + esc(shapeWord(p)) + '</td>' +
+          '<td><span class="flag ' + f.level + '">' + f.text + '</span></td></tr>';
+      }).join("") + '</tbody></table>' +
+      '<div class="prof-note">A column that is unique on every row can never produce a duplicate. ' +
+      'A column with one value throughout adds nothing to the match. Neither is an error — they ' +
+      'just will not do what you might expect.</div>';
+    box.hidden = false;
+    btn.textContent = "Hide the column summary";
+  }, 30);
+});
+
+/* ---------- saved datasets ----------
+
+   The page runs from a file:// URL, so it cannot read a folder of presets by
+   itself. Two routes instead, and together they cover it: settings are kept in
+   this browser so they are simply in the list next time, and they can be saved
+   out as a .json file to keep, email, or drop on a shared drive and load on
+   another machine. */
+
+const STORE_KEY = "collapse-duplicates.presets.v1";
+let SAVED = [];            // presets kept in this browser
+let CURRENT_PRESET = null; // the label showing in the picker
+
+function readStore(){
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    const a = raw ? JSON.parse(raw) : [];
+    return Array.isArray(a) ? a : [];
+  } catch (e) { return []; }   // private mode, cleared storage, corrupt entry
+}
+function writeStore(list){
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(list)); return true; }
+  catch (e) { return false; }  // quota or a browser that refuses storage on file://
+}
+
+function presetWarn(msg){
+  const e = $("#presetWarn");
+  if (!msg){ e.hidden = true; e.textContent = ""; return; }
+  e.hidden = false; e.textContent = msg;
+}
+
+function drawPresetPicker(){
+  const sel = $("#presetPick");
+  sel.innerHTML = "";
+  const add = (v, label) => {
+    const o = document.createElement("option");
+    o.value = v; o.textContent = label;
+    if (v === CURRENT_PRESET) o.selected = true;
+    sel.appendChild(o);
+  };
+  add("", "Custom — set everything by hand");
+  BUILTIN_PRESETS.forEach((p, i) => add("built:" + i, p.label));
+  SAVED.forEach((p, i) => add("saved:" + i, p.label));
+  $("#presetForget").hidden = !(CURRENT_PRESET || "").startsWith("saved:");
+  const note = $("#presetNote");
+  const cur = currentPresetObj();
+  note.textContent = cur && cur.note ? cur.note : "";
+}
+function currentPresetObj(){
+  const v = CURRENT_PRESET || "";
+  if (v.startsWith("built:")) return BUILTIN_PRESETS[+v.slice(6)] || null;
+  if (v.startsWith("saved:")) return SAVED[+v.slice(6)] || null;
+  return null;
+}
+
+/* Put a preset's settings on screen, saying plainly what did not bind. */
+function applyPreset(preset){
+  const bound = fromPreset(preset, HEADERS);
+  keySet.clear();
+  for (const c of bound.match) keySet.add(c);
+  PFX.clear();
+  for (const [c, v] of bound.prefix) PFX.set(c, v);
+  RULECFG = bound.rules.length ? bound.rules
+                              : [{ type:"hasvalue", field: HEADERS.length > 1 ? 1 : 0, on:true }];
+  DATEFMT.clear();
+  drawKeyChips();
+  renderRules();
+  syncPick();
+
+  const say = [];
+  if (bound.pending.length){
+    say.push("This preset leaves " + bound.pending.length + " column" +
+      (bound.pending.length === 1 ? "" : "s") + " for you to choose" +
+      (bound.note ? " — " + bound.note : "") + ".");
+  }
+  if (bound.missing.length){
+    const names = bound.missing.map(m => '"' + m.name + '"');
+    say.push("It also mentions " + bound.missing.length + " column" +
+      (bound.missing.length === 1 ? "" : "s") + " this file does not have: " +
+      names.join(", ") + ". Any criterion left without its column has been switched off.");
+  }
+  presetWarn(say.join(" "));
+}
+
+$("#presetPick").addEventListener("change", () => {
+  CURRENT_PRESET = $("#presetPick").value;
+  presetWarn("");
+  const p = currentPresetObj();
+  if (p) applyPreset(p);
+  drawPresetPicker();
+});
+
+$("#presetSave").addEventListener("click", () => {
+  if (!HEADERS.length) return;
+  const suggested = (currentPresetObj() || {}).label || SRCNAME || "My settings";
+  const label = (window.prompt("Name these settings", suggested) || "").trim();
+  if (!label) return;
+
+  const preset = toPreset(label, HEADERS,
+    { match: keySet, prefix: PFX, rules: RULECFG, note: "" });
+
+  // Keep it in this browser so it is simply in the list next time...
+  const at = SAVED.findIndex(p => p.label === label);
+  if (at === -1) SAVED.push(preset); else SAVED[at] = preset;
+  const stored = writeStore(SAVED);
+  CURRENT_PRESET = "saved:" + (at === -1 ? SAVED.length - 1 : at);
+  drawPresetPicker();
+
+  // ...and hand over the file, which is the copy that can be shared.
+  saveBlob(new Blob([JSON.stringify(preset, null, 2)], { type:"application/json" }),
+           label.replace(/[^\w .-]+/g, "_") + ".dedup-settings.json");
+
+  presetWarn(stored
+    ? ""
+    : "Saved to a file, but this browser would not keep a copy — it will not be in the list next time. Load the file when you need it.");
+});
+
+$("#presetLoad").addEventListener("click", () => $("#presetFile").click());
+$("#presetFile").addEventListener("change", e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const preset = parsePreset(String(r.result));
+      const at = SAVED.findIndex(p => p.label === preset.label);
+      if (at === -1) SAVED.push(preset); else SAVED[at] = preset;
+      writeStore(SAVED);
+      CURRENT_PRESET = "saved:" + (at === -1 ? SAVED.length - 1 : at);
+      drawPresetPicker();
+      if (HEADERS.length) applyPreset(preset);
+    } catch (err) { presetWarn(err.message); }
+  };
+  r.readAsText(f, "UTF-8");
+  e.target.value = "";        // so the same file can be picked twice
+});
+
+$("#presetForget").addEventListener("click", () => {
+  const p = currentPresetObj();
+  if (!p) return;
+  SAVED = SAVED.filter(x => x !== p);
+  writeStore(SAVED);
+  CURRENT_PRESET = "";
+  drawPresetPicker();
+  presetWarn("");
+});
+
+$("#addRule").addEventListener("click", () => {
+  const used = new Set(RULECFG.map(c => c.field));
+  let col = 0;
+  for (let i = 0; i < HEADERS.length; i++) if (!used.has(i) && !keySet.has(i)){ col = i; break; }
+  RULECFG.push(defaultCfg("hasvalue", col));
+  renderRules(); syncPick();
+});
+
+/* What stops the run, and why. */
+function ruleProblems(){
+  const out = [];
+  RULECFG.forEach((c, n) => {
+    const at = "Level " + (n + 1) + ": ";
+    if (!ruleIsOn(c)) return;                     // switched off; nothing to validate
+    if (c.needs || c.field === null){
+      out.push(at + "choose the column this preset left for you (" + c.needs + ").");
+      return;
+    }
+    if (c.type === "count" && (!c.fields || !c.fields.length))
+      out.push(at + "choose at least one column to count.");
+    if (c.type === "minmax" && c.parse === "date"){
+      const info = dateInfo(c.field);
+      if (!c.fmt) out.push(at + "choose the date format for " + shortColName(c.field) + ".");
+      else if (info.status === "contradictory")
+        out.push(at + shortColName(c.field) + " mixes day-first and month-first dates.");
+    }
+  });
+  return out;
+}
 const PFX = new Map();
 function renderPrefixRows(){
   const wrap = $("#prefixWrap"), list = $("#pfxList");
@@ -403,7 +1141,7 @@ function renderPrefixRows(){
   for (const c of keys){
     const row = document.createElement("div");
     row.className = "pfx-row";
-    row.innerHTML = '<div class="nm"><span class="ix">' + colLetter(c) + '</span>' + esc(HEADERS[c] || "(unnamed)") + '</div>';
+    row.innerHTML = '<div class="nm"><span class="ix">' + colLetter(c) + '</span>' + esc(headerLabel(HEADERS, c)) + '</div>';
     const inp = document.createElement("input");
     inp.type = "text"; inp.placeholder = "no prefix to ignore";
     inp.value = PFX.get(c) || "";
@@ -419,10 +1157,284 @@ $("#pfxApply").addEventListener("click", () => {
   for (const c of keySet){ if (v.length) PFX.set(c, v); else PFX.delete(c); }
   renderPrefixRows();
 });
-function makeNorm(){
-  const ci = $("#pfxCase").checked, tr = $("#pfxTrim").checked;
+function currentNorm(){
+  return makeNorm(PFX, { ci: $("#pfxCase").checked, trim: $("#pfxTrim").checked });
+}
+function syncPick(){
+  renderChain();
+  const problems = ruleProblems();
+  const overlap = RULECFG.filter(c => c.type !== "count" && keySet.has(c.field)).length;
+  $("#pickCount").textContent = keySet.size + " match column" + (keySet.size === 1 ? "" : "s") +
+    " selected \u00b7 " + RULECFG.length + " rule" + (RULECFG.length === 1 ? "" : "s") +
+    (overlap ? " \u00b7 " + overlap + " rule" + (overlap === 1 ? " sits" : "s sit") + " on a match column" : "");
+  const err = $("#ruleErr");
+  if (problems.length){ err.hidden = false; err.textContent = problems.join("  "); }
+  else err.hidden = true;
+  $("#run").disabled = keySet.size === 0 || problems.length > 0;
+  renderPrefixRows();
+}
+
+/* ---------- survivor rules ----------
+
+   An ordered chain of rules decides which row of a collision group survives.
+   Each level keeps only the candidates tied at its best score; if one is left
+   it wins, otherwise the next level runs on just those. When the rules are
+   spent, the row nearest the top of the file wins. That fallback is what
+   guarantees a winner exists at all, and it is deliberate: on these datasets
+   the criteria often tie, and "oldest wins" is the intent throughout.
+
+   Everything between the markers below is pure: no DOM, no globals, no I/O.
+   dedupPOC/tests/ slices this block straight out of this file and runs it, so
+   the tested code and the shipped code cannot drift apart. Keep it that way.
+*/
+/* ==== profile:begin ==== */
+
+/* "What is in each column?" -- the summary that guides the column pick.
+
+   Date-likeness is counted by SHAPE, not by parsing. Counting it by reading
+   every value as month-first, as the original did, would have the summary
+   quietly assume an order that the criteria themselves refuse to assume. */
+
+const PROFILE_CAP = 200000;         // distinct-value counting stops here
+const NUMBERISH = /^\s*-?\d+(\.\d+)?\s*$/;
+const DATEISH = [
+  /^\d{4}-\d{1,2}-\d{1,2}([T ]|$)/,
+  /^\d{1,2}[\/.-]\d{1,2}[\/.-](\d{2}|\d{4})([T, ]|$)/,
+  /^\d{1,2}[\s-][A-Za-z]{3,9}[\s-](\d{2}|\d{4})$/,
+  /^\d{8}$/
+];
+
+function profileColumn(cellAt, n, c, cap){
+  const limit = cap || PROFILE_CAP;
+  const seen = new Set();
+  let blank = 0, numeric = 0, dateish = 0, capped = false;
+  for (let i = 0; i < n; i++){
+    const v = String(cellAt(i, c));
+    if (!v.trim().length){ blank++; continue; }
+    if (seen.size < limit) seen.add(v); else capped = true;
+    const t = v.trim();
+    if (NUMBERISH.test(t)) numeric++;
+    else if (DATEISH.some(re => re.test(t))) dateish++;
+  }
+  return { c, blank, filled: n - blank, distinct: seen.size, capped, numeric, dateish };
+}
+
+/* Neither of these is an error. They are columns that will not do what someone
+   might expect them to do. */
+function profileFlag(p, n){
+  if (!p.filled) return { level:"no", text:"entirely empty" };
+  if (p.distinct === 1) return { level:"warn", text:"one value throughout" };
+  if (p.distinct === p.filled && p.filled === n && !p.capped)
+    return { level:"warn", text:"unique on every row" };
+  return { level:"", text:"" };
+}
+
+function shapeWord(p){
+  if (!p.filled) return "\u2014";
+  if (p.numeric === p.filled) return "all numbers";
+  if (p.dateish === p.filled) return "all dates";
+  if (p.numeric) return "text, " + Math.round(100 * p.numeric / p.filled) + "% numeric";
+  return "text";
+}
+
+/* ==== profile:end ==== */
+
+/* ==== presets:begin ==== */
+
+/* A saved preset is the whole setup for a dataset: the match columns that
+   decide what counts as a duplicate, and the ordered criteria that decide
+   which row survives. It is stored by column NAME, never by position, so it
+   still works on next month's export when a column has moved.
+
+   Binding one back to a file is where this can go quietly wrong, so it never
+   guesses: a name that cannot be found is reported, and any criterion left
+   without its column comes back switched off rather than pointing somewhere
+   plausible. */
+
+const PRESET_VERSION = 1;
+
+/* The datasets this tool was built for. A preset cannot know every site's
+   column names, so the ones a person must choose are marked __PICK_…__ and the
+   note says which. Written in the same shape as a saved preset, so built-in
+   and saved settings are the same kind of thing. */
+const BUILTIN_PRESETS = [
+  {
+    version: PRESET_VERSION,
+    label: "Casenotes",
+    note: "Oldest casenote first; if still tied, the lowest casenote number. The date column is not set — choose Last Modified Date or Last Activity Date.",
+    match: ["Client ID: HMIS ID", "Entry Date", "Case Note", "NoteWriter"],
+    prefix: { "Case Note": "" },
+    rules: [
+      { type:"minmax", parse:"date", dir:"min", field:"__PICK_LAST_DATE__", on:true },
+      { type:"minmax", parse:"number", dir:"min", field:"Casenote: Casenotes",
+        strip:"digits", on:true }
+    ]
+  },
+  {
+    version: PRESET_VERSION,
+    label: "Assessments",
+    note: "Most fields above zero; then the oldest record; then the lowest assessment ID. The employment column is not set — pick it by hand.",
+    match: ["Client ID: HMIS ID", "Assessment Date", "Assessment Type", "Assessor"],
+    prefix: {},
+    rules: [
+      { type:"count", dir:"max", counts:"above-zero", on:true,
+        fields:["Disabled", "DV Experience", "__PICK_EMPLOYMENT__", "Health Insurance",
+                "Length of Stay", "Living Situation", "Monthly Expenses"] },
+      { type:"minmax", parse:"date", dir:"min", field:"Assessment Date", on:true },
+      { type:"minmax", parse:"number", dir:"min", strip:"digits", on:true,
+        field:"Assessment: HMIS Assessment ID (yyyymmdd)" }
+    ]
+  },
+  {
+    version: PRESET_VERSION,
+    label: "HMIS Services",
+    note: "Oldest created date; if still tied, the oldest last-modified date. No column is named Service Combined — add the right one by hand.",
+    match: ["Client ID: HMIS ID", "Service Date", "__PICK_SERVICE_COMBINED__", "Created by User"],
+    prefix: {},
+    rules: [
+      { type:"minmax", parse:"date", dir:"min", field:"HMIS Service: Created Date", on:true },
+      { type:"minmax", parse:"date", dir:"min", field:"HMIS Service: Last Modified Date", on:true }
+    ]
+  },
+  {
+    version: PRESET_VERSION,
+    label: "HRM Services",
+    note: "Oldest created date; if still tied, the oldest last-modified date.",
+    match: ["Client ID: HMIS ID", "Service Date", "Office Visit", "Comments"],
+    prefix: {},
+    rules: [
+      { type:"minmax", parse:"date", dir:"min", field:"HRM Service: Created Date", on:true },
+      { type:"minmax", parse:"date", dir:"min", field:"HRM Service: Last Modified Date", on:true }
+    ]
+  }
+];
+
+
+/* Compare header names the way people retype them: case, spacing and
+   punctuation drift, the words do not. */
+function normName(s){ return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9]/g, ""); }
+
+/* A built-in preset cannot know every site's column names, so it marks the ones
+   a person must choose with a __PICK_…__ placeholder. That is a third state,
+   not a fourth kind of error: "missing" means something went wrong, "pending"
+   means the preset is working as written and is waiting to be told. */
+const PLACEHOLDER = /^__PICK_[A-Z0-9_]*__$/;
+function isPlaceholder(n){ return PLACEHOLDER.test(String(n == null ? "" : n)); }
+
+function toPreset(label, headers, settings){
+  const name = i => String(headers[i] == null ? "" : headers[i]);
+  const prefix = {};
+  for (const [c, v] of settings.prefix) prefix[name(c)] = v;
+  return {
+    version: PRESET_VERSION,
+    label: label,
+    note: settings.note || "",
+    match: [...settings.match].sort((a, b) => a - b).map(name),
+    prefix: prefix,
+    rules: settings.rules.map(r => {
+      const o = Object.assign({}, r);
+      if (o.type === "count"){
+        o.fields = (r.fields || []).map(c => (c === null || c === undefined) ? null : name(c))
+                                   .filter(x => x !== null);
+        if (r.needs) o.fields = o.fields.concat([r.needs]);
+      } else {
+        // An unchosen column is written back as its placeholder, so the preset
+        // stays reusable instead of freezing one site's choice.
+        o.field = (r.field === null || r.field === undefined) ? (r.needs || "") : name(r.field);
+      }
+      delete o.needs;
+      o.on = r.on !== false;
+      return o;
+    })
+  };
+}
+
+function parsePreset(text){
+  let o;
+  try { o = JSON.parse(text); }
+  catch (e) { throw new Error("that file could not be read as settings — it is not valid JSON"); }
+  if (!o || typeof o !== "object" || !Array.isArray(o.rules) || !Array.isArray(o.match))
+    throw new Error("that file is not a saved preset");
+  if (typeof o.version === "number" && o.version > PRESET_VERSION)
+    throw new Error("those settings were saved by a newer version of this tool");
+  if (!o.label || !String(o.label).length) o.label = "Saved settings";
+  o.prefix = o.prefix && typeof o.prefix === "object" ? o.prefix : {};
+  o.note = o.note || "";
+  return o;
+}
+
+/* Attach a preset to a particular file's headers. */
+function fromPreset(preset, headers){
+  const index = new Map();
+  headers.forEach((h, i) => { const k = normName(h); if (!index.has(k)) index.set(k, i); });
+  const find = n => { const i = index.get(normName(n)); return i === undefined ? null : i; };
+
+  const missing = [], pending = [];
+  // A placeholder that happens to name a real column is just that column.
+  const classify = n => {
+    const i = find(n);
+    if (i !== null) return { i };
+    return isPlaceholder(n) ? { pending:true } : { missing:true };
+  };
+
+  const match = new Set();
+  for (const n of preset.match){
+    const c = classify(n);
+    if (c.i !== undefined) match.add(c.i);
+    else if (c.pending) pending.push({ where:"match", placeholder:n });
+    else missing.push({ where:"match", name:n });
+  }
+  const prefix = new Map();
+  for (const n of Object.keys(preset.prefix || {})){
+    const c = classify(n);
+    if (c.i !== undefined) prefix.set(c.i, preset.prefix[n]);
+    else if (!c.pending) missing.push({ where:"prefix", name:n });
+  }
+
+  const rules = preset.rules.map((r, n) => {
+    const o = Object.assign({}, r);
+    if (o.type === "count"){
+      const kept = [];
+      for (const nm of r.fields || []){
+        const c = classify(nm);
+        if (c.i !== undefined) kept.push(c.i);
+        else if (c.pending) pending.push({ where:"rule", level:n + 1, placeholder:nm });
+        else missing.push({ where:"rule", level:n + 1, name:nm });
+      }
+      o.fields = kept.sort((a, b) => a - b);
+      if (!kept.length && !pending.some(x => x.level === n + 1)) o.on = false;
+    } else {
+      const c = classify(r.field);
+      if (c.i !== undefined) o.field = c.i;
+      else if (c.pending){
+        // Waiting on a person, not broken: stays on so it is asked about.
+        pending.push({ where:"rule", level:n + 1, placeholder:r.field });
+        o.field = null;
+        o.needs = r.field;
+      } else {
+        missing.push({ where:"rule", level:n + 1, name:r.field });
+        o.field = 0;
+        o.on = false;          // inert and visible beats silently misbound
+      }
+    }
+    return o;
+  });
+
+  return { label: preset.label, note: preset.note, match, prefix, rules, missing, pending };
+}
+
+/* ==== presets:end ==== */
+
+/* ==== rules:begin ==== */
+
+const NUL = "\u0000";   // key separator; never occurs in spreadsheet text
+
+/* Cut a declared prefix off a value before it is compared. The prefix is only
+   ignored for comparison — it is never rewritten in the data. */
+function makeNorm(pfxMap, opts){
+  const ci = !!(opts && opts.ci), tr = !!(opts && opts.trim);
   return (v, c) => {
-    const p = PFX.get(c);
+    const p = pfxMap.get(c);
     if (!p || v.length < p.length) return v;
     const head = v.slice(0, p.length);
     if (ci ? head.toLowerCase() !== p.toLowerCase() : head !== p) return v;
@@ -431,14 +1443,650 @@ function makeNorm(){
     return out;
   };
 }
-function syncPick(){
-  const tie = +$("#tieCol").value;
-  const clash = keySet.has(tie);
-  $("#pickCount").textContent = keySet.size + " match column" + (keySet.size === 1 ? "" : "s") + " selected" +
-    (clash ? " · tiebreak column is also a match column" : "");
-  $("#run").disabled = keySet.size === 0 || clash;
-  renderPrefixRows();
+
+/* A rule is { type, dir, score(rowIndex) }.
+   score returns a number, or null meaning "this row has no usable value here".
+   dir is +1 to keep the highest score, -1 to keep the lowest. */
+
+function pickWinner(idxs, rules){
+  let cand = idxs, decidedBy = null;
+  const trail = [];
+
+  for (let L = 0; L < rules.length && cand.length > 1; L++){
+    const rule = rules[L];
+    const scored = [];
+    for (const i of cand){
+      const s = rule.score(i);
+      if (s !== null && s !== undefined && s === s) scored.push([i, s]);
+    }
+    if (!scored.length){
+      // Nobody has a usable value, so this level cannot discriminate. Skipping
+      // is deliberate: it must not eliminate the whole field.
+      trail.push({ level:L, outcome:"skipped", from:cand.length, to:cand.length });
+      continue;
+    }
+    let best = scored[0][1];
+    for (let n = 1; n < scored.length; n++){
+      const s = scored[n][1];
+      if (rule.dir > 0 ? s > best : s < best) best = s;
+    }
+    const next = [];
+    for (const [i, s] of scored) if (s === best) next.push(i);
+
+    const narrowed = next.length < cand.length;
+    trail.push({ level:L, outcome: narrowed ? "narrowed" : "tied",
+                 from: cand.length, to: next.length, best });
+    if (narrowed) decidedBy = L;
+    cand = next;   // only ever shrinks, so file order is preserved throughout
+  }
+
+  return { winner: cand[0], trail, decidedBy };
 }
+
+/* cellAt(rowIndex, col) -> string. Injected so the rules stay testable
+   without a page, and so the page can hand them ROWS directly. */
+
+function makeHasValueRule(cellAt, col, wsBlank){
+  return {
+    type: "hasvalue", dir: +1, col,
+    score(i){
+      const v = cellAt(i, col);
+      return (wsBlank ? v.trim().length : v.length) > 0 ? 1 : null;
+    },
+    reason(outcome){
+      if (outcome === "narrowed") return "Kept the first row that carries a tiebreak value.";
+      if (outcome === "tied") return "All rows carry a tiebreak value — the one nearest the top of the file wins.";
+      return "No row carries a tiebreak value — the one nearest the top of the file wins.";
+    }
+  };
+}
+
+/* --- completeness: how many of these columns does the row actually fill? --- */
+
+/* Counting across a set of columns. Two different questions live here:
+   "filled" asks whether the cell has anything in it, "above-zero" asks whether
+   it holds a number greater than zero. A cell holding "0" answers those
+   differently, which is exactly why both are offered. */
+function makeCountRule(cellAt, n, cols, opts){
+  const wsBlank = opts.wsBlank !== false;
+  const aboveZero = (opts.counts || "above-zero") === "above-zero";
+  const vec = new Uint16Array(n);           // scored once, not per group
+  for (let i = 0; i < n; i++){
+    let hits = 0;
+    for (const c of cols){
+      const v = cellAt(i, c);
+      if (aboveZero){
+        const t = v.trim();
+        if (t.length && /^-?\d+(\.\d+)?$/.test(t) && Number(t) > 0) hits++;
+      } else if ((wsBlank ? v.trim().length : v.length) > 0) hits++;
+    }
+    vec[i] = hits;
+  }
+  return {
+    type: "count", dir: opts.dir === -1 ? -1 : +1, cols, counts: aboveZero ? "above-zero" : "filled",
+    score(i){ return vec[i]; },             // always a number, never null
+    reason(outcome){
+      const most = (opts.dir === -1) ? "fewest" : "most";
+      const what = aboveZero ? "fields above zero" : "columns filled";
+      if (outcome === "narrowed") return "Kept the row with the " + most + " " + what + ".";
+      if (outcome === "tied") return "Every row has the same count — the one nearest the top of the file wins.";
+      return "Counting could not separate these rows.";
+    }
+  };
+}
+
+/* --- number: strip the prefix, then read what is left as a number ---
+
+   Order matters. Pulling the digits out first turns INV-000123 into -123,
+   because the prefix's own hyphen reads as a minus sign. Strip, then parse.
+   Anything that does not yield a number returns null: an unreadable cell is
+   not a candidate, and must never arrive at a comparison as 0. */
+
+function parseNumberWith(raw, opts){
+  const prefixes = opts.prefixes || [];
+  const ci = !!opts.ci;
+  let s = String(raw);
+
+  for (const p of prefixes){
+    if (!p) continue;
+    const head = s.slice(0, p.length);
+    if (ci ? head.toLowerCase() === p.toLowerCase() : head === p){ s = s.slice(p.length); break; }
+  }
+  s = s.trim();
+  if (!s) return null;
+
+  let sign = 1;
+  if (opts.accounting){
+    const m = s.match(/^\((.*)\)$/);
+    if (m){ sign = -1; s = m[1].trim(); }
+  }
+
+  if (opts.mode === "auto"){
+    // A leading '-' is a sign only at the very start of what remains, never
+    // mid-token: "ACC-12-99" joins with hyphens, it does not negate.
+    const m = s.match(/^-?\d[\d.,]*|\d[\d.,]*/);
+    if (!m) return null;
+    s = m[0];
+  }
+
+  const dec = opts.decimal === "eu" ? "eu" : "us";
+  let t = dec === "eu" ? s.replace(/\./g, "").replace(",", ".")
+                       : s.replace(/,/g, "");
+
+  // Deliberately strict: no exponents, no trailing text, no bare signs.
+  if (!/^-?\d+(\.\d+)?$/.test(t)) return null;
+  const v = Number(t);
+  return v === v ? sign * v : null;
+}
+
+function makeNumberRule(cellAt, n, col, opts){
+  const vec = new Float64Array(n);
+  const miss = new Uint8Array(n);           // NaN would sort unpredictably
+  const strip = makeValueStrip(opts);
+  const zero = !!opts.zero;
+  let unreadable = 0;
+  for (let i = 0; i < n; i++){
+    const raw = cellAt(i, col);
+    // "Empty counts as 0" is about blank cells only. Text that simply cannot
+    // be read is still unreadable, and must not become a zero that wins "lowest".
+    if (zero && !String(raw).trim().length){ vec[i] = 0; continue; }
+    const v = parseNumberWith(strip(raw), opts);
+    if (v === null){ miss[i] = 1; unreadable++; } else vec[i] = v;
+  }
+  return {
+    type: "number", dir: opts.dir === -1 ? -1 : +1, col, unreadable,
+    score(i){ return miss[i] ? null : vec[i]; },
+    reason(outcome){
+      const which = (opts.dir === -1) ? "lowest" : "highest";
+      if (outcome === "narrowed") return "Kept the row with the " + which + " number in that column.";
+      if (outcome === "tied") return "Those numbers are equal — the one nearest the top of the file wins.";
+      return "No row has a readable number in that column.";
+    }
+  };
+}
+
+/* --- dates ---
+
+   The tool reads with raw:false, so a date cell arrives as whatever string its
+   number format produced. One underlying value can reach us as 2026-03-04,
+   03/04/2026, 04/03/2026 or 46085. new Date() gets two of those wrong without
+   complaining -- it assumes month-first and applies a local-time offset -- so
+   nothing here goes near it. Format is settled once per column, from evidence,
+   and every parse is checked by round-trip. */
+
+const MONTHS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+
+const DATE_RE = {
+  iso:    /^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/,
+  num:    /^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2}|\d{4})(?:[T, ]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?$/,
+  mon:    /^(\d{1,2})[\s-]([A-Za-z]{3,9})[\s-](\d{2}|\d{4})$/,
+  ymd8:   /^(\d{4})(\d{2})(\d{2})$/,
+  serial: /^\d{1,6}(\.\d+)?$/
+};
+
+function fourDigitYear(y){
+  const n = +y;
+  if (y.length === 4) return n;
+  return n <= 69 ? 2000 + n : 1900 + n;   // the usual pivot
+}
+
+/* Build a UTC timestamp, refusing anything that would silently roll over
+   (Date.UTC(2026, 1, 31) quietly becomes 3 March). */
+function utcOf(y, m, d, hh, mm, ss){
+  if (!(m >= 1 && m <= 12) || !(d >= 1 && d <= 31)) return null;
+  const t = Date.UTC(y, m - 1, d, hh || 0, mm || 0, ss || 0);
+  const b = new Date(t);
+  if (b.getUTCFullYear() !== y || b.getUTCMonth() !== m - 1 || b.getUTCDate() !== d) return null;
+  return t;
+}
+
+function parseDateWith(raw, format){
+  const s = String(raw).trim();
+  if (!s) return null;
+  let m;
+
+  if (format === "iso"){
+    m = s.match(DATE_RE.iso);
+    return m ? utcOf(+m[1], +m[2], +m[3], +m[4], +m[5], +m[6]) : null;
+  }
+  if (format === "dmy" || format === "mdy"){
+    m = s.match(DATE_RE.num);
+    if (!m) return null;
+    const a = +m[1], b = +m[2], y = fourDigitYear(m[3]);
+    const d = format === "dmy" ? a : b;
+    const mo = format === "dmy" ? b : a;
+    let hh = m[4] ? +m[4] : 0;
+    if (m[7]){                       // 12-hour clock: 12 AM is 0, 12 PM is 12
+      const pm = /p/i.test(m[7]);
+      if (hh === 12) hh = pm ? 12 : 0;
+      else if (pm) hh += 12;
+    }
+    return utcOf(y, mo, d, hh, +m[5], +m[6]);
+  }
+  if (format === "mon"){
+    m = s.match(DATE_RE.mon);
+    if (!m) return null;
+    const mo = MONTHS.indexOf(m[2].slice(0, 3).toLowerCase()) + 1;
+    if (!mo) return null;
+    return utcOf(fourDigitYear(m[3]), mo, +m[1]);
+  }
+  if (format === "ymd8"){
+    m = s.match(DATE_RE.ymd8);
+    return m ? utcOf(+m[1], +m[2], +m[3]) : null;
+  }
+  if (format === "serial"){
+    if (!DATE_RE.serial.test(s)) return null;
+    // Excel's day 0 is 1899-12-30. Serials <= 60 sit before its phantom
+    // 29 Feb 1900, so they are off by one and not worth guessing at.
+    const n = Number(s);
+    if (!(n > 60 && n < 500000)) return null;
+    return Date.UTC(1899, 11, 30) + Math.round(n * 86400000);
+  }
+  return null;
+}
+
+/* Settle the format for a whole column, from the values themselves. */
+function detectDateFormat(values){
+  const seen = [];
+  for (const v of values){ const s = String(v == null ? "" : v).trim(); if (s) seen.push(s); }
+  const total = seen.length;
+  const out = { format:null, status:"none", candidates:[], total, parsed:0, unparsed:total, sample:seen[0] || null };
+  if (!total) return out;
+
+  const counts = { iso:0, num:0, mon:0, ymd8:0, serial:0 };
+  let dayFirst = 0, monthFirst = 0;
+  for (const s of seen){
+    if (DATE_RE.iso.test(s)){ counts.iso++; continue; }
+    const m = s.match(DATE_RE.num);
+    if (m){
+      counts.num++;
+      if (+m[1] > 12) dayFirst++;         // 27/11 can only be day-first
+      if (+m[2] > 12) monthFirst++;       // 11/27 can only be month-first
+      continue;
+    }
+    if (DATE_RE.mon.test(s)){ counts.mon++; continue; }
+    // Only claim the compact form when the digits really are a date; 99999999
+    // and 20261301 are not, and must not drag a numeric column in with them.
+    if (DATE_RE.ymd8.test(s) && parseDateWith(s, "ymd8") !== null){ counts.ymd8++; continue; }
+    if (DATE_RE.serial.test(s)){ counts.serial++; }
+  }
+
+  const pick = (fmt, n) => {
+    out.format = fmt; out.status = "ok"; out.parsed = n; out.unparsed = total - n;
+    return out;
+  };
+
+  if (counts.iso && counts.iso >= counts.num && counts.iso >= counts.mon) return pick("iso", counts.iso);
+  if (counts.mon && counts.mon >= counts.num) return pick("mon", counts.mon);
+  if (counts.ymd8 && counts.ymd8 === total) return pick("ymd8", counts.ymd8);
+
+  if (counts.num){
+    if (dayFirst && monthFirst){
+      // Both proofs present: the column mixes conventions. Refuse.
+      out.status = "contradictory"; out.candidates = ["dmy", "mdy"];
+      out.parsed = 0; out.unparsed = total;
+      out.sample = seen.find(s => { const m = s.match(DATE_RE.num); return m && +m[1] > 12; }) || out.sample;
+      return out;
+    }
+    if (dayFirst) return pick("dmy", counts.num);
+    if (monthFirst) return pick("mdy", counts.num);
+    out.status = "ambiguous"; out.candidates = ["dmy", "mdy"];
+    out.parsed = 0; out.unparsed = total;
+    out.sample = seen.find(s => DATE_RE.num.test(s)) || out.sample;
+    return out;
+  }
+
+  if (counts.serial){
+    // Indistinguishable from ordinary numbers, so never chosen automatically.
+    out.status = "ambiguous"; out.candidates = ["serial"];
+    out.parsed = 0; out.unparsed = total;
+    out.sample = seen.find(s => DATE_RE.serial.test(s)) || out.sample;
+    return out;
+  }
+  return out;
+}
+
+function makeDateRule(cellAt, n, col, opts){
+  const format = opts.format;
+  const vec = new Float64Array(n);
+  const miss = new Uint8Array(n);
+  let unreadable = 0;
+  for (let i = 0; i < n; i++){
+    const t = parseDateWith(cellAt(i, col), format);
+    if (t === null){ miss[i] = 1; unreadable++; } else vec[i] = t;
+  }
+  return {
+    type: "date", dir: opts.dir === -1 ? -1 : +1, col, format, unreadable,
+    score(i){ return miss[i] ? null : vec[i]; },
+    reason(outcome){
+      const which = (opts.dir === -1) ? "earliest" : "latest";
+      if (outcome === "narrowed") return "Kept the row with the " + which + " date in that column.";
+      if (outcome === "tied") return "Those dates are the same — the one nearest the top of the file wins.";
+      return "No row has a readable date in that column.";
+    }
+  };
+}
+
+/* --- text: compare the value as written --- */
+
+function makeTextRule(cellAt, col, opts){
+  const strip = makeValueStrip(opts);
+  return {
+    type: "text", dir: opts.dir === -1 ? -1 : +1, col,
+    score(i){ const v = strip(cellAt(i, col)); return v.length ? v : null; },
+    reason(outcome){
+      const which = (opts.dir === -1) ? "first" : "last";
+      if (outcome === "narrowed") return "Kept the row whose value in that column sorts " + which + ".";
+      if (outcome === "tied") return "Those values are identical — the one nearest the top of the file wins.";
+      return "No row has a value in that column.";
+    }
+  };
+}
+
+/* How a criterion reads past a prefix before comparing. "digits" jumps to the
+   first digit so the prefix never has to be named; it deliberately starts at
+   the digit, not at a preceding hyphen, so ACC-12-99 reads as 12 and not -12. */
+function makeValueStrip(opts){
+  const mode = opts.strip || "none";
+  if (mode === "digits") return v => { const m = String(v).match(/[0-9].*$/); return m ? m[0] : ""; };
+  if (mode === "prefix"){
+    const list = String(opts.pfx || "").split(",").map(x => x.trim()).filter(x => x.length);
+    const ci = !!opts.ci;
+    return v => {
+      const s = String(v);
+      for (const p of list){
+        const head = s.slice(0, p.length);
+        if (ci ? head.toLowerCase() === p.toLowerCase() : head === p)
+          return s.slice(p.length).replace(/^[ \t]+/, "");
+      }
+      return s;
+    };
+  }
+  return v => String(v);
+}
+
+/* A criterion is written the way the presets and the saved settings write it:
+
+     { type:"minmax", parse:"date"|"number"|"text", dir:"min"|"max", field:<col>,
+       fmt:"ISO"|"DMY"|"MDY"|"MON"|"SERIAL",        // date only
+       strip:"none"|"prefix"|"digits", pfx:"INV-",  // how to read past a prefix
+       decimal:"us"|"eu", accounting:false,         // number only
+       zero:false,                                  // blank counts as 0
+       on:true }                                    // false = keep it, do not run it
+
+     { type:"count", dir:"min"|"max", fields:[<col>…],
+       counts:"above-zero"|"filled", on:true }
+
+     { type:"hasvalue", field:<col>, on:true }
+
+   dir is a word here and a sign inside the engine; nothing else differs. */
+
+function ruleIsOn(c){ return c.on !== false; }
+function dirOf(c){ return c.dir === "min" || c.dir === -1 ? -1 : +1; }
+
+const DATE_FMT_ID = { ISO:"iso", DMY:"dmy", MDY:"mdy", MON:"mon", YMD8:"ymd8", SERIAL:"serial" };
+const FMT_NAME = { iso:"ISO", dmy:"DMY", mdy:"MDY", mon:"MON", ymd8:"YMD8", serial:"SERIAL" };
+
+/* Turn the config objects the UI edits into live, scored rules. Criteria that
+   are switched off are left out of the chain entirely. */
+function buildRules(cfgs, cellAt, n, wsBlank){
+  const out = [];
+  for (const c of cfgs){
+    if (!ruleIsOn(c)) continue;
+    const dir = dirOf(c);
+    if (c.type === "count"){
+      out.push(makeCountRule(cellAt, n, c.fields || [],
+        { wsBlank: wsBlank, dir: dir, counts: c.counts }));
+      continue;
+    }
+    if (c.type === "hasvalue"){ out.push(makeHasValueRule(cellAt, c.field, wsBlank)); continue; }
+    const o = Object.assign({}, c, { dir: dir });
+    if (c.parse === "date"){
+      o.format = DATE_FMT_ID[c.fmt] || c.fmt;
+      out.push(makeDateRule(cellAt, n, c.field, o));
+    } else if (c.parse === "text"){
+      out.push(makeTextRule(cellAt, c.field, o));
+    } else {
+      out.push(makeNumberRule(cellAt, n, c.field, o));
+    }
+  }
+  return out;
+}
+
+/* One line per criterion, in the vocabulary the presets are written in. */
+function describeChain(cfgs, nameOf){
+  return cfgs.map(c => {
+    const off = ruleIsOn(c) ? "" : " (off)";
+    const min = dirOf(c) === -1;
+    if (c.type === "count"){
+      const what = (c.counts || "above-zero") === "above-zero" ? "fields above zero" : "columns filled";
+      return "keep the row with the " + (min ? "fewest " : "most ") + what +
+             " across " + (c.fields || []).length + " column" +
+             ((c.fields || []).length === 1 ? "" : "s") + off;
+    }
+    if (c.type === "hasvalue") return "keep a row that has a value in " + nameOf(c.field) + off;
+    const name = nameOf(c.field);
+    if (c.parse === "date")   return "keep the " + (min ? "oldest " : "newest ") + name + off;
+    if (c.parse === "text")   return "keep the " + (min ? "first " : "last ") + name + " alphabetically" + off;
+    return "keep the " + (min ? "lowest " : "highest ") + name + off;
+  });
+}
+
+/* Why this group resolved the way it did, in the deciding rule's own words. */
+/* A timestamp back as a plain date, for display only. */
+function isoDay(t){
+  const d = new Date(t);
+  const p = n => (n < 10 ? "0" : "") + n;
+  const day = d.getUTCFullYear() + "-" + p(d.getUTCMonth() + 1) + "-" + p(d.getUTCDate());
+  const ms = t - Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return ms ? day + " " + p(d.getUTCHours()) + ":" + p(d.getUTCMinutes()) : day;
+}
+
+function reasonFor(rules, trail, decidedBy){
+  const say = (lvl, outcome) => {
+    const r = rules[lvl];
+    return r && r.reason ? r.reason(outcome)
+                         : "Level " + (lvl + 1) + " decided it.";
+  };
+  if (decidedBy !== null) return say(decidedBy, "narrowed");
+  const tied = trail.find(t => t.outcome === "tied");
+  if (tied) return say(tied.level, "tied");
+  if (trail.length) return say(trail[trail.length - 1].level, "skipped");
+  return "No rules configured — the row nearest the top of the file wins.";
+}
+
+/* The whole collapse, with no DOM in sight: group the rows, pick a survivor in
+   each colliding group, and count everything the result panel reports. */
+function collapseRows(o){
+  const n = o.n, cellAt = o.cellAt, keys = o.keys, norm = o.norm;
+  const rules = o.rules || [], tie = o.tie, sampleLimit = o.sampleLimit || 30;
+  const anyPfx = !!o.anyPfx;
+
+  /* Grouping without building a key string per row.
+
+     The old version concatenated the key columns into a string, and a second
+     case-folded string, and held both in Maps -- roughly 630 bytes a row, which
+     is what ran the tab out of memory. This hashes the same normalised values
+     and keeps the groups in typed arrays instead.
+
+     A hash hit is never trusted. Every one is confirmed against the actual cell
+     values, so a collision costs one comparison and can never merge two rows
+     that differ. The confirmation compares field by field, then falls back to
+     comparing the joined strings when a field itself contains NUL -- because
+     the old key was NUL-joined, ["a\0b",""] and ["a","b"] have always collided,
+     and that is behaviour, not a bug to quietly fix here. */
+
+  const cap = 1 << (32 - Math.clz32(Math.max(4, Math.ceil(n / 0.6))));
+  const mask = cap - 1;
+  const slot = new Int32Array(cap).fill(-1);   // hash slot -> group id
+  const ghash = new Uint32Array(n);            // group id -> hash
+  const ghead = new Int32Array(n);             // group id -> first row
+  const gtail = new Int32Array(n);             // group id -> last row so far
+  const gnext = new Int32Array(n).fill(-1);    // row -> next row in its group
+  const grow  = new Int32Array(n);             // group id -> a representative row
+  const gsize = new Int32Array(n);
+  let gcount = 0;
+
+  const prefixed = new Uint8Array(n);
+  let wsOnly = 0, sci = 0, edgeSpace = 0, stripped = 0, emptiedByStrip = 0;
+
+  const nkeys = keys.length;
+  const fieldsA = new Array(nkeys), fieldsB = new Array(nkeys);
+
+  function normFields(i, into){
+    for (let f = 0; f < nkeys; f++) into[f] = norm(cellAt(i, keys[f]), keys[f]);
+  }
+  function sameKey(i, j){
+    normFields(i, fieldsA); normFields(j, fieldsB);
+    let nulSeen = false;
+    for (let f = 0; f < nkeys; f++){
+      const a = fieldsA[f], b = fieldsB[f];
+      if (a.indexOf(NUL) !== -1 || b.indexOf(NUL) !== -1) nulSeen = true;
+      if (a !== b){
+        if (!nulSeen) return false;
+        let ka = "", kb = "";
+        for (let g = 0; g < nkeys; g++){ ka += fieldsA[g] + NUL; kb += fieldsB[g] + NUL; }
+        return ka === kb;
+      }
+    }
+    return true;
+  }
+
+  // Near-miss counting needs the folded key, but only to know which groups fold
+  // together -- so it runs over groups afterwards, not over rows here.
+  const foldOf = i => {
+    let lk = "";
+    for (const c of keys) lk += norm(cellAt(i, c), c).trim().toLowerCase().replace(/\s+/g, " ") + NUL;
+    return lk;
+  };
+
+  for (let i = 0; i < n; i++){
+    let h = 0x811c9dc5;
+    for (let f = 0; f < nkeys; f++){
+      const c = keys[f];
+      const raw = cellAt(i, c);
+      const v = norm(raw, c);
+      if (v !== raw){
+        stripped++; prefixed[i] = 1;
+        if (!v.length) emptiedByStrip++;
+      }
+      for (let k = 0; k < v.length; k++){
+        h ^= v.charCodeAt(k);
+        h = Math.imul(h, 0x01000193);
+      }
+      h ^= 0; h = Math.imul(h, 0x01000193);   // field separator
+      const t = v.trim();
+      if (v.length !== t.length) edgeSpace++;
+      if (v.indexOf("E") !== -1 || v.indexOf("e") !== -1){
+        if (/^-?\d+(\.\d+)?E[+-]\d+$/i.test(v)) sci++;
+      }
+    }
+    h >>>= 0;
+    if (tie !== null && tie !== undefined){
+      const t = cellAt(i, tie);
+      if (t.length && !t.trim().length) wsOnly++;
+    }
+
+    let at = h & mask, g = -1;
+    while (slot[at] !== -1){
+      const cand = slot[at];
+      if (ghash[cand] === h && sameKey(grow[cand], i)){ g = cand; break; }
+      at = (at + 1) & mask;
+    }
+    if (g === -1){
+      g = gcount++;
+      slot[at] = g; ghash[g] = h; grow[g] = i;
+      ghead[g] = i; gtail[g] = i; gsize[g] = 1;
+    } else {
+      gnext[gtail[g]] = i; gtail[g] = i; gsize[g]++;
+    }
+  }
+
+  /* Rebuild a group's row list, in file order -- the chain was appended to in
+     ascending index, so walking it preserves that. */
+  function membersOf(g){
+    const out = new Array(gsize[g]);
+    let i = ghead[g];
+    for (let k = 0; k < out.length; k++){ out[k] = i; i = gnext[i]; }
+    return out;
+  }
+
+  /* The key string, only for the groups the inspector actually samples. */
+  function keyOf(i){
+    let k = "";
+    for (const c of keys) k += norm(cellAt(i, c), c) + NUL;
+    return k;
+  }
+
+  const keepFlag = new Uint8Array(n);
+  let dupGroups = 0, removed = 0, conflicts = 0, allBlankGroups = 0;
+  let pfxMerged = 0, pfxSurvivor = 0;
+  const samples = [];
+  const decidedAt = new Array(rules.length + 1).fill(0);  // last slot = file order
+  const rawKey = i => { let s = ""; for (const c of keys) s += cellAt(i, c) + NUL; return s; };
+
+  for (let g = 0; g < gcount; g++){
+    if (gsize[g] === 1){ keepFlag[ghead[g]] = 1; continue; }
+    const idxs = membersOf(g);
+    dupGroups++;
+    if (anyPfx){
+      const first = rawKey(idxs[0]);
+      if (idxs.some(i => rawKey(i) !== first)) pfxMerged++;
+    }
+
+    const pick = pickWinner(idxs, rules);
+    const winner = pick.winner;
+    const reason = reasonFor(rules, pick.trail, pick.decidedBy);
+
+    decidedAt[pick.decidedBy === null ? rules.length : pick.decidedBy]++;
+    if (pick.trail.length && pick.trail.every(t => t.outcome === "skipped")) allBlankGroups++;
+    if (winner !== idxs[0]) conflicts++;
+
+    keepFlag[winner] = 1;
+    if (prefixed[winner]) pfxSurvivor++;
+    removed += idxs.length - 1;
+    if (samples.length < sampleLimit){
+      const dr = pick.decidedBy !== null ? rules[pick.decidedBy] : null;
+      const showCol = dr && dr.col !== undefined && dr.col !== null ? dr.col : tie;
+      // What each criterion saw for each row, so the inspector can show the
+      // comparison rather than only its outcome.
+      const shown = idxs.map(i => rules.map(r => {
+        const sc = r.score(i);
+        if (sc === null || sc === undefined) return null;
+        if (r.type === "count") return String(sc);
+        if (r.type === "date")  return isoDay(sc);
+        return String(sc);
+      }));
+      samples.push({ k: keyOf(idxs[0]), idxs, winner, reason, tie: showCol, shown,
+                     trail: pick.trail, decidedBy: pick.decidedBy,
+                     pfx: idxs.map(i => !!prefixed[i]) });
+    }
+  }
+
+  /* Near-miss: how many distinct exact keys fold together once case and
+     spacing are ignored. Every group holds exactly one exact key, and two rows
+     in a group fold identically, so counting over groups gives the same number
+     over far fewer entries than counting over rows. */
+  let nearMiss = 0;
+  const folds = new Map();
+  for (let g = 0; g < gcount; g++){
+    const f = foldOf(ghead[g]);
+    folds.set(f, (folds.get(f) || 0) + 1);
+  }
+  for (const c of folds.values()) if (c > 1) nearMiss += c;
+
+  const keptIdx = [], goneIdx = [];
+  for (let i = 0; i < n; i++) (keepFlag[i] ? keptIdx : goneIdx).push(i);
+
+  return {
+    keptIdx, goneIdx, samples, decidedAt,
+    stats: { rowsIn:n, groups:gcount, dupGroups, removed, rowsOut:keptIdx.length,
+             conflicts, allBlankGroups, nearMiss, wsOnly, edgeSpace, sci,
+             stripped, emptiedByStrip, pfxMerged, pfxSurvivor }
+  };
+}
+
+/* ==== rules:end ==== */
 
 /* ---------- the collapse ---------- */
 $("#run").addEventListener("click", () => {
@@ -448,90 +2096,41 @@ $("#run").addEventListener("click", () => {
 
 function runCollapse(){
   const keys = [...keySet].sort((a,b) => a-b);
-  const tie = +$("#tieCol").value;
   const wsBlank = $("#wsBlank").checked;
-  const hasVal = v => (wsBlank ? v.trim().length : v.length) > 0;
+  const cellAt = (i, c) => ROWS[i][c];
+  const rules = buildRules(RULECFG, cellAt, ROWS.length, wsBlank);
+  const tie = RULECFG.length && RULECFG[0].type !== "count" ? RULECFG[0].field : null;
 
-  const norm = makeNorm();
-  const anyPfx = keys.some(c => PFX.has(c));
-
-  const groups = new Map();   // compared key -> array of row indices
-  const loose  = new Map();   // trimmed+casefolded key -> Set of compared keys
-  const prefixed = new Uint8Array(ROWS.length);
-  let wsOnly = 0, sci = 0, edgeSpace = 0, stripped = 0, emptiedByStrip = 0;
-
-  for (let i=0;i<ROWS.length;i++){
-    const r = ROWS[i];
-    let k = "", lk = "";
-    for (const c of keys){
-      const raw = r[c];
-      const v = norm(raw, c);
-      if (v !== raw){
-        stripped++; prefixed[i] = 1;
-        if (!v.length) emptiedByStrip++;
-      }
-      k += v + NUL;
-      lk += v.trim().toLowerCase().replace(/\s+/g," ") + NUL;
-      if (v.length !== v.trim().length) edgeSpace++;
-      if (/^-?\d+(\.\d+)?E[+-]\d+$/i.test(v)) sci++;
-    }
-    const t = r[tie];
-    if (t.length && !t.trim().length) wsOnly++;
-    let g = groups.get(k);
-    if (!g){ g = []; groups.set(k, g); }
-    g.push(i);
-    let s = loose.get(lk);
-    if (!s){ s = new Set(); loose.set(lk, s); }
-    s.add(k);
-  }
-
-  say("Deciding survivors…", 70);
-
-  const keepFlag = new Uint8Array(ROWS.length);
-  let dupGroups = 0, removed = 0, conflicts = 0, allBlankGroups = 0;
-  let pfxMerged = 0, pfxSurvivor = 0;
-  const samples = [];
-  const rawKey = i => { let s = ""; for (const c of keys) s += ROWS[i][c] + NUL; return s; };
-
-  for (const [k, idxs] of groups){
-    if (idxs.length === 1){ keepFlag[idxs[0]] = 1; continue; }
-    dupGroups++;
-    if (anyPfx){
-      const first = rawKey(idxs[0]);
-      if (idxs.some(i => rawKey(i) !== first)) pfxMerged++;
-    }
-    const withVal = idxs.filter(i => hasVal(ROWS[i][tie]));
-    let winner, reason;
-    if (withVal.length){
-      winner = withVal[withVal.length - 1];
-      reason = withVal.length === idxs.length
-        ? "All rows carry a tiebreak value — last one in the file wins."
-        : "Kept the last row that carries a tiebreak value.";
-      if (winner !== idxs[idxs.length - 1]) conflicts++;
-    } else {
-      winner = idxs[idxs.length - 1];
-      reason = "No row carries a tiebreak value — last one in the file wins.";
-      allBlankGroups++;
-    }
-    keepFlag[winner] = 1;
-    if (prefixed[winner]) pfxSurvivor++;
-    removed += idxs.length - 1;
-    if (samples.length < 30) samples.push({ k, idxs, winner, reason, tie, pfx: idxs.map(i => !!prefixed[i]) });
-  }
-
-  let nearMiss = 0;
-  for (const s of loose.values()) if (s.size > 1) nearMiss += s.size;
-
-  const kept = [], gone = [];
-  for (let i=0;i<ROWS.length;i++) (keepFlag[i] ? kept : gone).push(ROWS[i]);
+  const out = collapseRows({
+    n: ROWS.length,
+    cellAt,
+    keys,
+    norm: currentNorm(),
+    anyPfx: keys.some(c => PFX.has(c)),
+    rules,
+    wsBlank,
+    tie,
+    sampleLimit: 30,
+  });
 
   RESULT = {
-    kept, gone, samples, keys, tie, wsBlank, anyPfx,
+    kept: out.keptIdx.map(i => ROWS[i]),
+    gone: out.goneIdx.map(i => ROWS[i]),
+    samples: out.samples, decidedAt: out.decidedAt,
+    keys, tie, wsBlank, anyPfx: keys.some(c => PFX.has(c)),
+    rulecfg: RULECFG.map(c => Object.assign({}, c)),
+    encoding: SRCKIND === "csv" ? ENCODING : null,
+    unreadable: rules.map((r, i) => ({ level:i+1, type:r.type, col:r.col, n:r.unreadable || 0 }))
+                     .filter(x => x.n > 0),
+    // `chain` is indexed alongside the built rules, so a switched-off criterion
+    // cannot shift the per-criterion values in the inspector. `chainAll` keeps
+    // the full list, including the off ones, for the run summary.
+    chain: describeChain(RULECFG.filter(ruleIsOn), shortColName),
+    chainAll: describeChain(RULECFG, shortColName),
+    chainCol: rules.map(r => (r.col === undefined ? null : r.col)),
     pfxMap: new Map([...PFX].filter(([c]) => keySet.has(c))),
     pfxTrim: $("#pfxTrim").checked, pfxCase: $("#pfxCase").checked,
-    stats:{ rowsIn:ROWS.length, groups:groups.size, dupGroups, removed, rowsOut:kept.length,
-            conflicts, allBlankGroups, nearMiss, wsOnly, edgeSpace, sci,
-            stripped, emptiedByStrip, pfxMerged, pfxSurvivor }
+    stats: out.stats
   };
   $("#progress").hidden = true;
   render();
@@ -546,13 +2145,34 @@ function render(){
     ['drop', n(s.removed), 'Rows removed'],
     ['keep', n(s.rowsOut), 'Rows out'],
     ['', n(s.dupGroups), 'Colliding groups'],
-    [s.conflicts ? 'warn' : '', n(s.conflicts), 'Tiebreak overrode order'],
+    [s.conflicts ? 'warn' : '', n(s.conflicts), 'Rules overrode order'],
     [s.nearMiss ? 'warn' : '', n(s.nearMiss), 'Near-miss keys']
   ];
   if (RESULT.anyPfx) cards.splice(4, 0, ['warn', n(s.pfxMerged), 'Groups joined by prefix']);
   $("#stats").innerHTML = cards.map(([c,v,l]) => '<div class="stat ' + c + '"><div class="n">' + v + '</div><div class="l">' + l + '</div></div>').join("");
 
+  const att = RESULT.decidedAt.map((cnt, i) => {
+    if (!cnt) return null;
+    const name = i < RESULT.chain.length ? "<b>" + (i + 1) + ".</b> " + esc(RESULT.chain[i])
+                                         : '<span class="fall"><b>' + (i + 1) + '.</b> nearest the top of the file</span>';
+    return name + " \u2192 " + n(cnt) + " group" + (cnt === 1 ? "" : "s");
+  }).filter(Boolean);
+  $("#attrib").innerHTML = RESULT.stats.dupGroups
+    ? "Which rule decided each collision: &nbsp;" + att.join(" &nbsp;\u00b7&nbsp; ")
+    : "No collisions, so no rule had to decide anything.";
+
   const h = [];
+  if (RESULT.encoding && RESULT.encoding !== "utf-8"){
+    h.push('This file is not UTF-8, so it was read as <b>' + esc(RESULT.encoding) +
+           '</b> — the encoding Excel on Windows writes for a plain .csv. Accented ' +
+           'characters were kept as they are. If any name looks wrong in the output, ' +
+           're-save the source as <b>CSV UTF-8</b> and run it again.');
+  }
+  for (const u of RESULT.unreadable){
+    h.push('Level <b>' + u.level + '</b> could not read <b>' + n(u.n) + ' cell' + (u.n === 1 ? '' : 's') +
+           '</b> in ' + esc(HEADERS[u.col] || colLetter(u.col)) +
+           '. Those rows were passed over by that rule rather than scored as zero.');
+  }
   if (RESULT.anyPfx){
     h.push('A prefix was cut off <b>' + n(s.stripped) + ' times</b> before comparing. <b>' + n(s.pfxMerged) + ' groups</b> exist only because of it — without the prefix rule those rows would have stayed separate.');
     if (s.pfxSurvivor) h.push('In <b>' + n(s.pfxSurvivor) + ' groups</b> the surviving row is one that carries the prefix, so the prefix stays in the cleaned output. The prefix is only ignored for comparison, never rewritten.');
@@ -562,7 +2182,7 @@ function render(){
   if (s.edgeSpace) h.push('<b>' + n(s.edgeSpace) + ' cells</b> in the match columns start or end with a space. Those spaces are part of the comparison.');
   if (s.sci) h.push('<b>' + n(s.sci) + ' cells</b> in the match columns look like scientific notation (1.23E+15). Excel does that to long numbers, and it destroys the original digits.');
   if (s.wsOnly) h.push('<b>' + n(s.wsOnly) + ' cells</b> in the tiebreak column hold only spaces. They were treated as ' + (RESULT.wsBlank ? 'empty' : 'a value') + '.');
-  if (s.allBlankGroups) h.push('<b>' + n(s.allBlankGroups) + ' groups</b> had no tiebreak value on any row, so the last row in the file was kept.');
+  if (s.allBlankGroups) h.push('<b>' + n(s.allBlankGroups) + ' groups</b> had no tiebreak value on any row, so the row nearest the top of the file was kept.');
   $("#hazards").innerHTML = h.length
     ? '<div class="haz"><h3 class="disp">Worth checking before you trust the output</h3><ul><li>' + h.join('</li><li>') + '</li></ul></div>'
     : '';
@@ -576,13 +2196,20 @@ function render(){
         .map((v,i) => '<span class="mono">' + esc(HEADERS[RESULT.keys[i]] || colLetter(RESULT.keys[i])) + '</span> = ' + (v.length ? esc(v) : '<span class="empty6">empty</span>'))
         .join(' &nbsp;·&nbsp; ');
       const rows = g.idxs.map((i, j) => {
-        const v = ROWS[i][g.tie];
         const on = i === g.winner;
+        const seen = (g.shown && g.shown[j]) || [];
+        const cells = seen.map((v, ri) => {
+          const raw = RESULT.chain[ri] ? RESULT.chainCol[ri] : null;
+          const rawTxt = raw === null || raw === undefined ? "" : ROWS[i][raw];
+          const shownTxt = v === null ? '<span class="empty6">no value</span>'
+            : esc(v) + (rawTxt && rawTxt.trim() !== v ? ' <span class="empty6">(' + esc(rawTxt) + ')</span>' : '');
+          return '<span class="v6">' + (ri + 1) + '. ' + shownTxt + '</span>';
+        }).join(' &nbsp;·&nbsp; ');
         return '<div class="row ' + (on ? 'kept' : 'gone') + '">' +
           '<span class="mark"></span>' +
           '<span class="rn">row ' + (i + 2) + '</span>' +
           (g.pfx && g.pfx[j] ? '<span class="pf">prefix cut</span>' : '') +
-          '<span class="v6">' + (v.length ? esc(v) : '<span class="empty6">empty</span>') + '</span>' +
+          (cells || '<span class="v6"><span class="empty6">no criteria</span></span>') +
           '<span class="tag">' + (on ? 'kept' : 'removed') + '</span></div>';
       }).join("");
       return '<div class="group"><div class="gkey">' + (RESULT.anyPfx ? 'compared as &nbsp;· &nbsp;' : '') + parts + '</div>' + rows +
@@ -604,17 +2231,41 @@ function saveBlob(blob, name){
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
 }
 function saveXlsx(rows, name, sheet){
-  const aoa = [HEADERS, ...rows];
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, sheet);
-  const buf = XLSX.write(wb, { bookType:"xlsx", type:"array" });
-  saveBlob(new Blob([buf], { type:"application/octet-stream" }), name);
+  $("#dlErr").hidden = true;
+  try {
+    const aoa = [HEADERS, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheet);
+    // Without compression SheetJS writes a stored (uncompressed) zip, and its
+    // writer throws once that reaches 128MiB -- around 2.8 million cells,
+    // regardless of how much memory is free. Compressing moves that ceiling
+    // past Excel's own 1,048,576-row limit.
+    const buf = XLSX.write(wb, { bookType:"xlsx", type:"array", compression:true });
+    saveBlob(new Blob([buf], { type:"application/octet-stream" }), name);
+  } catch (e) {
+    // This used to throw into the console: the button appeared to do nothing,
+    // after the user had already waited through the whole run.
+    dlFail("That is too large to write as .xlsx (" + rows.length.toLocaleString() +
+           " rows). Use the .csv button instead — it handles far more and is much faster.");
+  }
+}
+function dlFail(msg){
+  const e = $("#dlErr"); e.hidden = false; e.textContent = msg;
+}
+function saveCsv(rows, name){
+  $("#dlErr").hidden = true;
+  try {
+    saveBlob(new Blob([toCSV(HEADERS, rows)], { type:"text/csv;charset=utf-8" }), name);
+  } catch (e) {
+    dlFail("That is too large to write in one piece (" + rows.length.toLocaleString() +
+           " rows). Split the source file and run it in parts.");
+  }
 }
 $("#dlClean").addEventListener("click", () => saveXlsx(RESULT.kept, SRCNAME + "_cleaned.xlsx", "cleaned"));
 $("#dlRemoved").addEventListener("click", () => saveXlsx(RESULT.gone, SRCNAME + "_removed.xlsx", "removed"));
-$("#dlCleanCsv").addEventListener("click", () =>
-  saveBlob(new Blob([toCSV(HEADERS, RESULT.kept)], { type:"text/csv;charset=utf-8" }), SRCNAME + "_cleaned.csv"));
+$("#dlCleanCsv").addEventListener("click", () => saveCsv(RESULT.kept, SRCNAME + "_cleaned.csv"));
+$("#dlRemovedCsv").addEventListener("click", () => saveCsv(RESULT.gone, SRCNAME + "_removed.csv"));
 
 $("#dlSummary").addEventListener("click", () => {
   const s = RESULT.stats, L = [];
@@ -624,13 +2275,16 @@ $("#dlSummary").addEventListener("click", () => {
   L.push("");
   L.push("SOURCE");
   L.push("  file base name .......... " + SRCNAME);
-  L.push("  format .................. " + SRCKIND);
+  L.push("  format .................. " + SRCKIND + (SRCKIND === "csv" ? " (" + ENCODING + ")" : ""));
   L.push("  columns ................. " + HEADERS.length);
   L.push("  data rows ............... " + s.rowsIn);
   L.push("");
   L.push("RULE APPLIED");
-  L.push("  match columns ........... " + RESULT.keys.map(i => colLetter(i) + " " + (HEADERS[i] || "(unnamed)")).join(" | "));
-  L.push("  tiebreak column ......... " + colLetter(RESULT.tie) + " " + (HEADERS[RESULT.tie] || "(unnamed)"));
+  L.push("  match columns ........... " + RESULT.keys.map(i => colLetter(i) + " " + headerLabel(HEADERS, i)).join(" | "));
+  RESULT.chainAll.forEach((line, i) => {
+    L.push("  rule " + (i + 1) + " .................. " + line);
+  });
+  L.push("  fallback ................ keep the row nearest the top of the file");
   L.push("  comparison .............. exact, case and whitespace sensitive");
   if (RESULT.anyPfx){
     for (const [c, p] of RESULT.pfxMap)
@@ -640,8 +2294,9 @@ $("#dlSummary").addEventListener("click", () => {
   } else {
     L.push("  prefixes ignored ........ none");
   }
-  L.push("  survivor ................ last row carrying a tiebreak value; otherwise last row in file order");
-  L.push("  spaces-only tiebreak .... treated as " + (RESULT.wsBlank ? "empty" : "a value"));
+  L.push("  survivor ................ first rule above that separates the rows; ties fall to the next");
+  L.push("  final fallback .......... the row nearest the top of the file");
+  L.push("  spaces-only cells ....... treated as " + (RESULT.wsBlank ? "empty" : "a value"));
   L.push("");
   L.push("RESULT");
   L.push("  distinct keys ........... " + s.groups);
@@ -662,7 +2317,13 @@ $("#dlSummary").addEventListener("click", () => {
   }
   L.push("  cells with edge spaces .. " + s.edgeSpace);
   L.push("  cells in sci notation ... " + s.sci);
-  L.push("  spaces-only tiebreak .... " + s.wsOnly);
+  L.push("  spaces-only cells ....... " + s.wsOnly);
+  L.push("");
+  L.push("WHICH RULE DECIDED");
+  RESULT.decidedAt.forEach((n, i) => {
+    const name = i < RESULT.chain.length ? "rule " + (i + 1) : "file order";
+    L.push("  " + (name + " ").padEnd(24, ".") + " " + n + " group" + (n === 1 ? "" : "s"));
+  });
   saveBlob(new Blob([L.join("\r\n")], { type:"text/plain;charset=utf-8" }), SRCNAME + "_run_summary.txt");
 });
 </script>
