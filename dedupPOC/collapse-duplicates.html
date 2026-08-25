@@ -135,6 +135,7 @@ table.prof th,table.prof td{padding:6px 10px;border-bottom:1px solid var(--rule)
 table.prof thead th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:400;background:var(--field)}
 table.prof td.n{text-align:right;font-variant-numeric:tabular-nums}
 table.prof tr.sel td{background:var(--field);font-weight:600}
+table.prof .ix{font-family:'Cascadia Mono','Consolas',monospace;font-size:11px;color:var(--muted);margin-right:7px}
 .flag{font-size:11px;letter-spacing:.05em;text-transform:uppercase}
 .flag.warn{color:var(--warn)}
 .flag.no{color:var(--drop)}
@@ -1266,7 +1267,12 @@ function shapeWord(p){
   if (!p.filled) return "\u2014";
   if (p.numeric === p.filled) return "all numbers";
   if (p.dateish === p.filled) return "all dates";
-  if (p.numeric) return "text, " + Math.round(100 * p.numeric / p.filled) + "% numeric";
+  const pct = n => Math.round(100 * n / p.filled);
+  // A column that is nearly all dates should say so. Reporting it as plain
+  // "text" hides exactly the thing someone is looking for when picking a
+  // date criterion.
+  if (p.dateish && p.dateish >= p.numeric) return "text, " + pct(p.dateish) + "% dates";
+  if (p.numeric) return "text, " + pct(p.numeric) + "% numeric";
   return "text";
 }
 

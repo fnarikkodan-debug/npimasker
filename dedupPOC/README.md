@@ -52,11 +52,33 @@ If nothing happens, right-click it → **Open with** → **Microsoft Edge**.
 
 ## Step 2 — Load your file
 
+![The tool confirms the row and column count, and which encoding it read the file in](docs/screenshots/01-load.png)
+
+*The tool confirms the row and column count, and which encoding it read the file in*
+
 Drag your spreadsheet onto the box at the top, or click the box and browse to it.
 
 The tool confirms how many rows and columns it found. **Check that row count against your file.** If it doesn't match, stop — something is wrong with the file, not with the tool.
 
+## What is in each column?
+
+Before choosing anything, click **What is in each column?**. It counts what is actually there.
+
+![The column summary](docs/screenshots/03-columns.png)
+
+*The column summary, before any columns are chosen*
+
+Two shapes are worth noticing. A column that is **unique on every row** can never produce a duplicate. A column with **one value throughout** adds nothing to the match. Neither is an error — they just will not do what you might expect.
+
+The **Looks like** column tells you what a criterion will be able to read. A column reading `text, 93% dates` has a few values that are not dates; those rows will be passed over by a date criterion rather than counted as earliest.
+
+---
+
 ## Step 3 — Choose the match columns
+
+![Selected columns are filled in; a prefix box appears for each one](docs/screenshots/04-match.png)
+
+*Selected columns are filled in; a prefix box appears for each one*
 
 Click the columns that decide whether two rows are duplicates. Rows count as duplicates only when **every** one of those columns is identical.
 
@@ -78,6 +100,10 @@ Type the prefix exactly as it appears in the data. Leave the box empty for colum
 The prefix is only ignored **when comparing**. It is never deleted from your data — if the row that survives happens to carry the prefix, it keeps it.
 
 ## Pick the dataset
+
+![Built-in datasets first, then anything you have saved](docs/screenshots/02-dataset.png)
+
+*Built-in datasets first, then anything you have saved*
 
 The picker at the top of step 02 starts you from a known setup rather than a blank page. **Casenotes**, **Assessments**, **HMIS Services** and **HRM Services** are built in; anything you save joins the list underneath them.
 
@@ -107,6 +133,10 @@ Two things worth knowing:
 ---
 
 ## Step 5 — Set the survivor rules
+
+![Three criteria in order, with the whole chain restated underneath and the fallback shown last](docs/screenshots/05-rules.png)
+
+*Three criteria in order, with the whole chain restated underneath and the fallback shown last*
 
 When rows collide, the tool keeps one of them and drops the rest. You decide which, by building a list of rules.
 
@@ -149,6 +179,10 @@ Click **Collapse duplicates**. On a large file this takes a few seconds.
 
 ## Reading the result
 
+![The counts, and which rule decided each collision](docs/screenshots/06-result.png)
+
+*The counts, and which rule decided each collision*
+
 | What it says | What it means |
 |---|---|
 | **Rows in / Rows removed / Rows out** | The arithmetic. Rows in minus rows removed should equal rows out. |
@@ -161,11 +195,19 @@ Under the numbers, a line shows **which rule decided each collision** — how ma
 
 Below that, the **collision inspector** shows real examples: each group of duplicate rows, which one was kept, and why. Read a few. This is the quickest way to confirm the rule is doing what you expect before you trust the whole file.
 
+![The collision inspector](docs/screenshots/07-inspector.png)
+
+*Every group: which row was kept, what each criterion compared, and why*
+
 Anything the tool thinks is worth a second look appears in a highlighted box above the inspector.
 
 ---
 
 ## The files you get
+
+![The summary is the only one of these that is safe to send on](docs/screenshots/08-downloads.png)
+
+*The summary is the only one of these that is safe to send on*
 
 | File | Contains | Where it goes |
 |---|---|---|

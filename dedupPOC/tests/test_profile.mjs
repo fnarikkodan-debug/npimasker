@@ -73,3 +73,20 @@ test("a flagged column is not an error, just a warning", () => {
   assert.equal(P.profileFlag(prof(3), ROWS.length).level, "no");
   assert.equal(P.profileFlag(prof(1), ROWS.length).level, "");
 });
+
+test("a column that is nearly all dates says so, rather than just 'text'", () => {
+  // 14 ISO dates and one "not recorded" is not "all dates", but calling it
+  // plain text hides the thing someone picking a date criterion is looking for.
+  const rows = [];
+  for (let i = 0; i < 14; i++) rows.push(["2026-03-0" + (i % 9)]);
+  rows.push(["not recorded"]);
+  const p = P.profileColumn(cellsOf(rows), rows.length, 0);
+  assert.equal(p.dateish, 14);
+  assert.match(P.shapeWord(p), /93% dates/);
+});
+
+test("a mostly-numeric column still reports its numeric share", () => {
+  const rows = [["1"], ["2"], ["3"], ["n/a"]];
+  const p = P.profileColumn(cellsOf(rows), 4, 0);
+  assert.match(P.shapeWord(p), /75% numeric/);
+});
