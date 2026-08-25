@@ -6,6 +6,33 @@ A single web page that removes duplicate rows from a spreadsheet.
 
 ---
 
+## How it works
+
+Rows only collide when **every** match column is identical. A colliding group is then narrowed by your rules, one at a time, until one row is left — and if the rules run out with rows still tied, the row nearest the top of the file wins. That last step never changes and is what guarantees exactly one survivor per group.
+
+```mermaid
+flowchart LR
+    A["Load workbook/CSV\n(.xlsx · .xlsm · .csv)"] --> B["Pick a dataset preset\nCasenotes · Assessments · HMIS Services · HRM Services"]
+    B --> C["Group rows by\nPrimary Selection (concat/match fields)"]
+    C --> D{"Group size?"}
+    D -->|"1 row"| E["Kept as-is\n(no collision)"]
+    D -->|"2+ rows"| F["First Selection Criterion"]
+    F --> G{"Winner found?"}
+    G -->|"Yes"| K["Row survives"]
+    G -->|"Tied"| H["Second Selection Criterion"]
+    H --> I{"Winner found?"}
+    I -->|"Yes"| K
+    I -->|"Still tied"| J["Fallback:\nnearest the top of the file"]
+    J --> K
+    K --> L["Cleaned rows (.xlsx/.csv)"]
+    C --> M["Losing rows"]
+    M --> N["Removed rows (.xlsx/.csv)"]
+```
+
+"Selection Criteria" here are just your survivor rules from Step 5, applied in the order you set them. The built-in presets (Casenotes, Assessments, HMIS Services, HRM Services) come with the match columns and criteria already filled in for you — see [Pick the dataset](#pick-the-dataset) below.
+
+---
+
 ## Before you start
 
 You need two things in the same folder:

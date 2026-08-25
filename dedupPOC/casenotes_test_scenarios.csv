@@ -1,0 +1,30 @@
+Client ID: HMIS ID,Entry Date,Case Note,NoteWriter,Last Modified Date,Last Activity Date,Casenote: Casenotes,Test Scenario
+100101,2026-01-05,Housing search assistance provided.,jmartinez,2026-01-20,2026-01-21,1045,S1 - later Last Modified Date and lower Casenote number: should still LOSE to the row below
+100101,2026-01-05,Housing search assistance provided.,jmartinez,2026-01-15,2026-01-16,1098,S1 - earlier Last Modified Date: should WIN even with a higher Casenote number
+100102,2026-02-01,Follow-up on SNAP application.,klee,2026-02-10,2026-02-11,500,S2 - Last Modified Date tied with row below: higher Casenote number, should LOSE
+100102,2026-02-01,Follow-up on SNAP application.,klee,2026-02-10,2026-02-11,210,S2 - Last Modified Date tied: lower Casenote number, should WIN
+100103,2026-03-03,Intake assessment completed.,asmith,2026-03-12,2026-03-13,3001,S3 - three-way duplicate: not the oldest Last Modified Date, should LOSE
+100103,2026-03-03,Intake assessment completed.,asmith,2026-03-05,2026-03-06,3002,S3 - three-way duplicate: oldest Last Modified Date, should WIN
+100103,2026-03-03,Intake assessment completed.,asmith,2026-03-20,2026-03-21,3000,S3 - three-way duplicate: newest Last Modified Date, should LOSE
+100104,2026-04-01,Referred to legal aid clinic.,bwong,2026-04-05,2026-04-06,4010,S4 - identical in every column, appears FIRST: should WIN on file order alone
+100104,2026-04-01,Referred to legal aid clinic.,bwong,2026-04-05,2026-04-06,4010,S4 - identical in every column, appears SECOND: should LOSE on file order alone
+100105,2026-05-01,Employment counseling session.,dkim,,2026-05-02,5010,S5 - Last Modified Date is blank/unreadable: should LOSE even with a lower Casenote number
+100105,2026-05-01,Employment counseling session.,dkim,2026-05-08,2026-05-09,5099,S5 - the only row with a readable Last Modified Date: should WIN
+100106,2026-06-01,Case plan review.,mgarcia,2026-06-02,2026-06-03,6001,S6 - NoteWriter differs from the row below: NOT a duplicate, should be KEPT as-is
+100106,2026-06-01,Case plan review.,tnguyen,2026-06-02,2026-06-03,6002,S6 - NoteWriter differs from the row above: NOT a duplicate, should be KEPT as-is
+100107,2026-07-01,Bus pass issued.,rjohnson,2026-07-02,2026-07-03,7001,S7 - Case Note text differs from the row below: NOT a duplicate, should be KEPT as-is
+100107,2026-07-01,Bus pass issued for medical appt.,rjohnson,2026-07-02,2026-07-03,7002,S7 - Case Note text differs from the row above: NOT a duplicate, should be KEPT as-is
+100108,2026-08-01,Weekly check-in.,pwilliams,2026-08-02,2026-08-03,8001,S8 - Entry Date differs from the row below: NOT a duplicate, should be KEPT as-is
+100108,2026-08-02,Weekly check-in.,pwilliams,2026-08-03,2026-08-04,8002,S8 - Entry Date differs from the row above: NOT a duplicate, should be KEPT as-is
+100109,2026-09-01,Shelter bed confirmed.,lchavez,2026-09-02,2026-09-03,9001,S9 - Client ID differs from the row below despite identical note text: NOT a duplicate, should be KEPT as-is
+100209,2026-09-01,Shelter bed confirmed.,lchavez,2026-09-02,2026-09-03,9002,S9 - Client ID differs from the row above despite identical note text: NOT a duplicate, should be KEPT as-is
+100110,2026-10-01,Utility assistance approved.,hoconnor,2026-10-05,2026-10-06,CN-00120,S10 - Last Modified Date tied: prefixed Casenote number 120, should LOSE once digits are compared numerically
+100110,2026-10-01,Utility assistance approved.,hoconnor,2026-10-05,2026-10-06,CN-00045,S10 - Last Modified Date tied: prefixed Casenote number 45, should WIN once digits are compared numerically
+100111,2026-11-01,Mental health referral made.,ssingh,2026-11-15,2026-11-16,11050,S11 - four-way duplicate: not the oldest Last Modified Date, should LOSE
+100111,2026-11-01,Mental health referral made.,ssingh,2026-11-02,2026-11-03,11099,S11 - four-way duplicate: tied for oldest Last Modified Date, higher Casenote number, should LOSE
+100111,2026-11-01,Mental health referral made.,ssingh,2026-11-02,2026-11-03,11020,S11 - four-way duplicate: tied for oldest Last Modified Date, lower Casenote number, should WIN
+100111,2026-11-01,Mental health referral made.,ssingh,2026-11-20,2026-11-21,11001,S11 - four-way duplicate: newest Last Modified Date, should LOSE
+100301,2026-01-10,Client relocated out of area.,jmartinez,2026-01-11,2026-01-11,15501,Unique row - no other record shares its Client ID/Entry Date/Case Note/NoteWriter, should be KEPT as-is
+100302,2026-02-14,Annual recertification completed.,klee,2026-02-15,2026-02-15,15502,Unique row - should be KEPT as-is
+100303,2026-03-22,No contact - left voicemail.,asmith,2026-03-22,2026-03-22,15503,Unique row - should be KEPT as-is
+100304,2026-04-30,Case closed - housing obtained.,dkim,2026-05-01,2026-05-01,15504,Unique row - should be KEPT as-is
