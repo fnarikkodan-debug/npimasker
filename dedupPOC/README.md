@@ -1,4 +1,4 @@
-# Exact-match row collapser — how to use it
+# Clean Data Maker — how to use it
 
 A single web page that removes duplicate rows from a spreadsheet.
 
@@ -57,6 +57,8 @@ The picker at the top of step 02 starts you from a known setup rather than a bla
 A built-in preset cannot know your column names for certain, so some leave a column for you to choose. When one does, the tool says which and will not run until you have picked it. That is deliberate — it is the difference between "waiting for you" and "quietly using the wrong column".
 
 If a preset names a column your file does not have at all, the tool says so by name and switches that criterion **off**. It never attaches a criterion to a column it merely resembles.
+
+Below the picker, a **"How to use this"** box restates the steps for whichever dataset is currently selected — including which column (if any) you'll be asked to pick. It updates automatically as you change the picker, and still shows generic step-by-step instructions when nothing built-in or saved is selected.
 
 ---
 
